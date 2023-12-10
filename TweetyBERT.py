@@ -18,7 +18,7 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 # Define configurations
 configurations = [
-        {"experiment_name": "200k_steps_all_canaries", "notes": "for purposes of layer downstream finetuning", "loss_function": "compute_loss", "plot_umap": False, "train_dir": "train", "test_dir": "test", "batch_size": 16, "d_transformer": 512, "nhead_transformer": 8, "embedding_dim": 250, "num_clusters": 500, "dropout": 0.1, "dim_feedforward": 1024, "transformer_layers": 6, "m": 10, "p": 0.015, "alpha": 1, "sigma": 10, "learning_rate": 1e-4, "max_steps": 2e5, "eval_interval": 1000, "save_interval": 9999, "umap_data_dir": "umap_eval_dataset_llb16", "remove_silences": False, "subsample": 1, "context": 1000, "time_bins_umap_point": 100, "weight_decay": 0.0001, "tau":.1}
+        {"experiment_name": "200k_steps_all_canaries_half_hubert", "notes": "", "loss_function": "compute_loss", "plot_umap": False, "train_dir": "train", "test_dir": "test", "batch_size": 16, "d_transformer": 384, "nhead_transformer": 4, "embedding_dim": 256, "num_clusters": 1000, "dropout": 0.1, "dim_feedforward": 1536, "transformer_layers": 6, "m": 10, "p": 0.015, "alpha": 1, "sigma": 10, "learning_rate": 1e-4, "max_steps": 4e5, "eval_interval": 1000, "save_interval": 9999, "umap_data_dir": "umap_eval_dataset_llb16", "remove_silences": False, "subsample": 1, "context": 1000, "time_bins_umap_point": 100, "weight_decay": 0.0001, "tau":.1}
 ]
 
 for i, config in enumerate(configurations):
