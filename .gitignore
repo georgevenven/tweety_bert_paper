@@ -2,3 +2,5 @@ imgs
 files
 experiments
 *.pyc
+/train
+/test

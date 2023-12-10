@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from model import TweetyBERT
 from trainer import ModelTrainer
 from analysis import plot_umap_projection
+from utils import detailed_count_parameters
 import hashlib
 import json
 import shutil
@@ -71,6 +72,8 @@ class ExperimentRunner:
             alpha=config['alpha'],
             sigma=config['sigma']
         ).to(self.device)
+
+        detailed_count_parameters(model)
         
         # Initialize optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'])
@@ -104,20 +107,3 @@ class ExperimentRunner:
         
         # Plot the results
         trainer.plot_results(save_plot=True, config=config)
-
-        if config['plot_umap'] == True:
-            #UMAP Analysis
-            plot_umap_projection(
-                model, 
-                self.device, 
-                data_dir=config['umap_data_dir'], 
-                subsample_factor=config['subsample'],  # Using new config parameter
-                remove_silences=config['remove_silences'],  # Using new config parameter
-                samples=1000, 
-                file_path='files/category_colors_llb16.pkl', 
-                layer_index=-1, 
-                dict_key="feed_forward_output_relu", 
-                time_bins_per_umap_point=config['time_bins_umap_point'], 
-                context=config['context'],  # Using new config parameter
-                save_dir=os.path.join(experiment_dir, 'umap.png')
-            )

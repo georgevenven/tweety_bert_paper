@@ -32,32 +32,32 @@ model = load_model(tweetyBERT_config_path, tweetyBERT_weight_path, device)
 # multi-song analysis 
 from analysis import plot_umap_projection, plot_pca_projection
 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/home/george-vengrovski/Documents/data/eval_dataset/llb3_data_matrices", 
-# subsample_factor=config['subsample'],  # Using new config parameter
-# remove_silences=False,  # Using new config parameter
-# samples=1000, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-1, 
-# dict_key="V", 
-# time_bins_per_umap_point=100, 
-# context=config['context'],  # Using new config parameter
-# raw_spectogram=False
-# )
-
-plot_pca_projection(
+plot_umap_projection(
 model=model, 
 device=device, 
 data_dir="/home/george-vengrovski/Documents/data/eval_dataset/llb3_data_matrices", 
 subsample_factor=config['subsample'],  # Using new config parameter
 remove_silences=False,  # Using new config parameter
-samples=100, 
+samples=5000, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=-1, 
 dict_key="intermediate_residual_stream", 
-time_bins_per_pca_point=100, 
+time_bins_per_umap_point=100, 
 context=config['context'],  # Using new config parameter
 raw_spectogram=False
 )
+
+# plot_pca_projection(
+# model=model, 
+# device=device, 
+# data_dir="/home/george-vengrovski/Documents/data/eval_dataset/llb3_data_matrices", 
+# subsample_factor=config['subsample'],  # Using new config parameter
+# remove_silences=False,  # Using new config parameter
+# samples=100, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=-1, 
+# dict_key="intermediate_residual_stream", 
+# time_bins_per_pca_point=100, 
+# context=config['context'],  # Using new config parameter
+# raw_spectogram=False
+# )

@@ -5,7 +5,7 @@ import os
 import sys
 sys.path.append("src")
 
-os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
+os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 from spectogram_generator import WavtoSpec, copy_yarden_data
 
