@@ -24,57 +24,6 @@ files = [f for f in os.listdir(eval_dir) if f.endswith(".npz")]
 for file in tqdm(files, desc="Processing files"):
     file_path = os.path.join(eval_dir, file)
     
-    # Load the data
-    data = np.load(file_path)
-    spectrogram = data['s']
-    labels = data['labels'].flatten()
-
-    # Vectorized removal of silences and preserving original indices
-    original_indices = np.arange(len(labels))
-    non_silence_indices = labels != 0
-    labels_no_silence = labels[non_silence_indices]
-    original_indices_no_silence = original_indices[non_silence_indices]
-
-    # Segment processing with preserved indices
-    prev_label = -1
-    start_index_original = 0
-    for i, label in enumerate(labels_no_silence):
-        if label != prev_label:
-            if prev_label != -1:
-                end_index_original = original_indices_no_silence[i - 1] + 1
-                seg_key = (prev_label, end_index_original - start_index_original)
-
-                if seg_key not in class_segments:
-                    class_segments[seg_key] = []
-                    segment_indices[seg_key] = []
-                    segment_files[seg_key] = []
-
-                class_segments[seg_key].append(labels[start_index_original:end_index_original])
-                segment_indices[seg_key].append((start_index_original, end_index_original))
-                segment_files[seg_key].append(file)
-
-            start_index_original = original_indices_no_silence[i]
-            prev_label = label
-
-    # Handle the last segment if not silence
-    if prev_label != 0:
-        end_index_original = original_indices_no_silence[-1] + 1
-        seg_key = (prev_label, end_index_original - start_index_original)
-        if seg_key not in class_segments:
-            class_segments[seg_key] = []
-            segment_indices[seg_key] = []
-            segment_files[seg_key] = []
-        class_segments[seg_key].append(labels[start_index_original:end_index_original])
-        segment_indices[seg_key].append((start_index_original, end_index_original))
-        segment_files[seg_key].append(file)
-
-# Calculate median lengths and select snippets
-median_segments = {}
-for key, segments in class_segments.items():
-    lengths = [len(seg) for seg in segments]
-    median_length = np.median(lengths)
-    closest_segment = min(segments, key=lambda x: abs(len(x) - median_length))
-    median_segments[key] = closest_segment
 
 # Create and save the combined spectrogram
 final_spectrogram = None
