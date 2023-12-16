@@ -70,7 +70,8 @@ class ExperimentRunner:
             m=config['m'],
             p=config['p'],
             alpha=config['alpha'],
-            sigma=config['sigma']
+            sigma=config['sigma'],
+            length = config['context']
         ).to(self.device)
 
         detailed_count_parameters(model)

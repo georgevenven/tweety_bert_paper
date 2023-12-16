@@ -49,7 +49,8 @@ def load_model(config_path, weight_path, device):
         m=config['m'],
         p=config['p'],
         alpha=config['alpha'],
-        sigma=config['sigma']
+        sigma=config['sigma'],
+        length=config['context']
     ).to(device)
 
     load_torch_model(dir=weight_path, model=model)

@@ -9,11 +9,11 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 from psuedo_label_generator import SpectrogramProcessor
 
-data_root = "/home/george-vengrovski/Documents/data/pretrain_dataset"
+data_root = "/home/george-vengrovski/Documents/data/llb3_data_matrices"
 train = "train"
 test = "test"
 
-processor = SpectrogramProcessor(data_root=data_root, train_dir=train, test_dir=test, n_clusters=1000, train_prop=0.8)
+processor = SpectrogramProcessor(data_root=data_root, train_dir=train, test_dir=test, n_clusters=100, train_prop=0.8)
 
 # ## CAREFUL
 processor.clear_directory(train)
