@@ -38,4 +38,6 @@ def split_dataset(folder_path, train_ratio, train_folder_dest, test_folder_dest)
         shutil.copy2(os.path.join(folder_path, file), os.path.join(test_folder_dest, file))
 
 # Example usage
-split_dataset('/home/george-vengrovski/Documents/data/llb3_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/test')
+split_dataset('/home/george-vengrovski/Documents/data/llb3_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb3_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb3_test')
+split_dataset('/home/george-vengrovski/Documents/data/llb16_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb16_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb16_test')
+split_dataset('/home/george-vengrovski/Documents/data/llb11_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb11_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb11_test')

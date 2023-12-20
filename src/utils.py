@@ -27,7 +27,6 @@ def detailed_count_parameters(model):
 
 
 def load_model(config_path, weight_path, device):
-
     sys.path.append("src")
     os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
 

@@ -18,8 +18,8 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 # Define configurations
 configurations = [
-        {"experiment_name": "TweetyBERT-Cluster-20k-Tau-1-WeightDecay0-wsilence-2000-context", "notes": "Why break apart?", "loss_function": "compute_loss", "plot_umap": False, "train_dir": "train", "test_dir": "test", "batch_size": 16, "d_transformer": 384, "nhead_transformer": 4, "embedding_dim": 50, "num_clusters": 100, "dropout": 0.1, "dim_feedforward": 1536, "transformer_layers": 4, "m": 10, "p": 0.015, "alpha": 1, "sigma": 10, "learning_rate": 3e-4, "max_steps": 5e4, "eval_interval": 1000, "save_interval": 9999, "umap_data_dir": "umap_eval_dataset_llb16", "remove_silences": False, "subsample": 1, "context": 2000, "time_bins_umap_point": 100, "weight_decay": 0, "tau":1}
+        {"experiment_name": "1mask", "notes": "", "loss_function": "compute_loss", "plot_umap": False, "train_dir": "train", "test_dir": "test", "batch_size": 32, "d_transformer": 384, "nhead_transformer": 4, "embedding_dim": 50, "num_clusters": 100, "dropout": 0.1, "dim_feedforward": 1536, "transformer_layers": 4, "m": 1, "p": 0.15, "alpha": 1, "sigma": 10, "learning_rate": 3e-4, "max_steps": 2e5, "eval_interval": 1000, "save_interval": 9999, "umap_data_dir": "umap_eval_dataset_llb16", "remove_silences": False, "subsample": 1, "context": 1000, "time_bins_umap_point": 100, "weight_decay": 0, "tau":1},
+        {"experiment_name": "0mask", "notes": "", "loss_function": "compute_loss", "plot_umap": False, "train_dir": "train", "test_dir": "test", "batch_size": 32, "d_transformer": 384, "nhead_transformer": 4, "embedding_dim": 50, "num_clusters": 100, "dropout": 0.1, "dim_feedforward": 1536, "transformer_layers": 4, "m": 30, "p": 0.000, "alpha": 0, "sigma": 10, "learning_rate": 3e-4, "max_steps": 2e5, "eval_interval": 1000, "save_interval": 9999, "umap_data_dir": "umap_eval_dataset_llb16", "remove_silences": False, "subsample": 1, "context": 1000, "time_bins_umap_point": 100, "weight_decay": 0, "tau":1}
 ]
-
 for i, config in enumerate(configurations):
     experiment_runner.run_experiment(config, i)
