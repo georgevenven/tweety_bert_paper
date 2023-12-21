@@ -34,7 +34,7 @@ class SongDataSet_Image(Dataset):
             psuedo_labels = data['new_labels']
         else:
             psuedo_labels = data['labels']
-            # this sloppy, but essentially the psuedo label generation process also crop the freq dim
+            # this is sloppy, but essentially the psuedo label generation process also crop the freq dim
             # so I have to do it here if the psuedo label generation process has not occured yet 
 
             # Z-score normalization, because this also done in psuedo label generation process 

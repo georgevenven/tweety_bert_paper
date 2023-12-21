@@ -155,6 +155,18 @@ class TweetyBERT(nn.Module):
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 
+    # probably not the best way
+    def get_layer_output_pairs(self):
+        layer_output_pairs = []
+        for layer_index, layer in enumerate(self.transformer_encoder):
+            # Dummy input
+            dummy_x = torch.randn(1, self.d_transformer)  
+            output_dict = layer(dummy_x)
+
+            # Iterate over the keys in the output dictionary of the layer
+            for key in output_dict.keys():
+                layer_output_pairs.append((key, layer_index))
+        return layer_output_pairs
 
     def feature_extractor_forward(self, x):
         x = F.gelu(self.conv1(x))
@@ -172,7 +184,6 @@ class TweetyBERT(nn.Module):
             x = output_dict['feed_forward_output']  
 
         return x, all_outputs
-
 
     def masking_operation(self, x, p=0.01, m=10, noise_weight=20.0):
         

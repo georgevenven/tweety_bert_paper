@@ -9,6 +9,7 @@ sys.path.append("src")
 os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 from utils import load_model, detailed_count_parameters
+from linear_probe import LinearProbeModel
 
 def load_config_from_path(path):
     with open(path, 'r') as f:
@@ -36,16 +37,27 @@ def load_config_from_path(path):
 # # The Flow
 # # Select Models that You Will Be Analyzing (experiments folder)
 
-path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments"
+# evaluate the FER on all the layers
+def probe_eval(model, results_path, folder):
+    # Step 1: Create directory in results_path named folder
+    folder_path = os.path.join(results_path, folder)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    # create psuedo input to extract the num layers / each 
+        
+    print(model.get_layer_output_pairs())
+
+    pass 
 
 def get_highest_numbered_file(files):
     weights_files = [f for f in files if re.match(r'model_step_\d+\.pth', f)]
     if not weights_files:
         return None
     highest_num = max([int(re.search(r'\d+', f).group()) for f in weights_files])
-    return f'model_weights_{highest_num}.pth'
+    return f'model_step_{highest_num}.pth'
 
-def execute_eval_of_experiments(base_path):
+def execute_eval_of_experiments(base_path, results_path):
     # loop through all experimental folders 
     for folder in os.listdir(base_path):
         folder_path = os.path.join(base_path, folder)
@@ -60,19 +72,14 @@ def execute_eval_of_experiments(base_path):
                 if weights_file and config_path:
                     weight_path = os.path.join(weights_folder, weights_file)
                     model = load_model(config_path, weight_path, device)
-
-                    ## insert here the experiment  
-
+                    probe_eval(model, results_path, folder)  
+                    break
                 else: 
                     print("files for eval of experiment not found")
-
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"device: {device}") 
 
-path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments"
-execute_eval_of_experiments(path)
-
-# Select Eval Folders
-# Loop Through all dicts and keys and outputs and do FER rate and save the UMAP 
+experiment_paths = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments"
+results_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/results"
+execute_eval_of_experiments(experiment_paths, results_path)

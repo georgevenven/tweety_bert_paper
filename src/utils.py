@@ -12,7 +12,7 @@ import shutil
 import sys
 
 
-def load_torch_model(dir, model):
+def load_weights(dir, model):
     model.load_state_dict(torch.load(dir))
 
 def detailed_count_parameters(model):
@@ -26,7 +26,7 @@ def detailed_count_parameters(model):
     print(f"Total Trainable Parameters: {total_params:,}")
 
 
-def load_model(config_path, weight_path, device):
+def load_model(config_path, weight_path):
     sys.path.append("src")
     os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
 
@@ -50,10 +50,9 @@ def load_model(config_path, weight_path, device):
         alpha=config['alpha'],
         sigma=config['sigma'],
         length=config['context']
-    ).to(device)
+    )
 
-    load_torch_model(dir=weight_path, model=model)
-    print(f"Model has been succesfully loaded, parameter count:")
-    detailed_count_parameters(model)
+    if weight_path:
+        load_weights(dir=weight_path, model=model)
 
     return model 
