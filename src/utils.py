@@ -1,15 +1,10 @@
-import torch 
-import numpy as np
-import matplotlib.pyplot as plt
+
 import os
 import torch 
-import os
-import torch
 from torch.utils.data import DataLoader
-import hashlib
 import json
-import shutil
 import sys
+from model import TweetyBERT
 
 
 def load_weights(dir, model):
@@ -25,15 +20,17 @@ def detailed_count_parameters(model):
         # print(f"Layer: {name} | Parameters: {param:,} | Shape: {list(parameter.shape)}")
     print(f"Total Trainable Parameters: {total_params:,}")
 
+def load_config(config_path):
+    with open(config_path, 'r') as f:
+        config = json.load(f)  # Load and parse the JSON file
+
+    return config
 
 def load_model(config_path, weight_path):
     sys.path.append("src")
     os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
 
-    from model import TweetyBERT
-    ## new model ###
-    with open(config_path, 'r') as f:
-        config = json.load(f)  # Load and parse the JSON file
+    config = load_config(config_path)
 
     # Initialize model
     model = TweetyBERT(

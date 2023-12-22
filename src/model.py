@@ -101,7 +101,6 @@ class CustomEncoderBlock(nn.Module):
             'V': attn_result['V'],
             'attention_output': attn_output_norm,
             'intermediate_residual_stream': input_residual,
-            'attention_weights': attn_result['attention_weights'],
             'feed_forward_output_relu': ff_output_relu,
             'feed_forward_output': ff_output_norm,
         }
@@ -155,18 +154,23 @@ class TweetyBERT(nn.Module):
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 
-    # probably not the best way
     def get_layer_output_pairs(self):
         layer_output_pairs = []
-        for layer_index, layer in enumerate(self.transformer_encoder):
-            # Dummy input
-            dummy_x = torch.randn(1, self.d_transformer)  
-            output_dict = layer(dummy_x)
 
-            # Iterate over the keys in the output dictionary of the layer
+        # Create a dummy input for a complete forward pass
+        dummy_x = torch.randn(1, self.d_transformer)
+        # Extract the transformer forward outputs
+        _, all_outputs = self.transformer_forward(dummy_x)
+
+        # Iterate over each layer and its outputs
+        for layer_index, output_dict in enumerate(all_outputs):
             for key in output_dict.keys():
-                layer_output_pairs.append((key, layer_index))
+                # Get the dimensionality of the output tensor
+                dim = output_dict[key].size(-1)
+                layer_output_pairs.append((key, layer_index, dim))
+
         return layer_output_pairs
+
 
     def feature_extractor_forward(self, x):
         x = F.gelu(self.conv1(x))

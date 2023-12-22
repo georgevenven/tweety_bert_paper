@@ -94,8 +94,9 @@ def plot_umap_projection(model, device, data_dir="test_llb16", subsample_factor=
     # Save the plot if save_dir is specified
     if save_dir:
         plt.savefig(save_dir, format='png')
-     
-    plt.show()
+    
+    else:
+        plt.show()
 
     # horrible code, not my fault... 
     if save_dict_for_analysis:
