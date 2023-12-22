@@ -98,7 +98,6 @@ class LinearProbeTrainer():
         loss_list, val_loss_list, frame_error_rate_list = [], [], []
 
         while total_batches < self.desired_total_batches:
-            iterable = tqdm(self.train_loader, desc="Training", unit="batch") if self.use_tqdm else self.train_loader
             for i, (spectrogram, label, _) in enumerate(self.train_loader):
                 if total_batches >= self.desired_total_batches:
                     break
@@ -131,9 +130,10 @@ class LinearProbeTrainer():
                     loss_list.append(loss.item())
                     val_loss_list.append(avg_val_loss)
                     frame_error_rate_list.append(avg_frame_error)
-
                 if stop_training:
                     break
+            if stop_training:
+                break
 
         if self.plotting:
             self.plot_results(loss_list, val_loss_list, frame_error_rate_list)

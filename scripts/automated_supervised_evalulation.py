@@ -53,7 +53,7 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
         classifier_model = classifier_model.to(device)
 
         # Create a trainer and perform training
-        trainer = LinearProbeTrainer(classifier_model, train_loader, test_loader, device, lr=1e-3, plotting=False, batches_per_eval=250, desired_total_batches=1e4, patience=4, use_tqdm=False)
+        trainer = LinearProbeTrainer(classifier_model, train_loader, test_loader, device, lr=1e-3, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=4, use_tqdm=True)
 
         trainer.train()
 
@@ -67,24 +67,30 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
         all_results[(layer_id, layer_num)] = (class_frame_error_rates, total_frame_error_rate)
 
 
-        umap_path = os.path.join(folder_path, f"UMAP of layer_num: {layer_num} sub_layer: {layer_id}.png")
-        #Save UMAP plots of layer 
-        plot_umap_projection(
-        model=model, 
-        device=device, 
-        data_dir="/home/george-vengrovski/Documents/data/llb3_data_matrices", 
-        subsample_factor=config['subsample'],  # Using new config parameter
-        remove_silences=False,  # Using new config parameter
-        samples=100, 
-        file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-        layer_index=layer_num, 
-        dict_key=layer_id, 
-        time_bins_per_umap_point=1, 
-        context=1000,  # Using new config parameter
-        raw_spectogram=False,
-        save_dict_for_analysis = False,
-        save_dir=umap_path
-        )
+        umap_path = os.path.join(folder_path, f"UMAP of layer_num: {layer_num} sub_layer: {layer_id}.png") 
+        try:
+            plot_umap_projection(
+                model=model, 
+                device=device, 
+                data_dir="/home/george-vengrovski/Documents/data/llb3_data_matrices", 
+                subsample_factor=config['subsample'],  # Using new config parameter
+                remove_silences=False,  # Using new config parameter
+                samples=100, 
+                file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+                layer_index=layer_num, 
+                dict_key=layer_id, 
+                time_bins_per_umap_point=1, 
+                context=1000,  # Using new config parameter
+                raw_spectogram=False,
+                save_dict_for_analysis=False,
+                save_dir=umap_path
+            )
+        except Exception as e:
+            error_file_path = os.path.join(folder_path, "UMAP_Error_Log.txt")
+            with open(error_file_path, "w") as file:
+                file.write(f"UMAP plot for layer_num: {layer_num}, sub_layer: {layer_id} could not be created.\n")
+                file.write(f"Error: {e}")
+                    
 
     return all_results
 
