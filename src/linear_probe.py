@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os 
 import json 
+import umap
 
 class LinearProbeModel(nn.Module):
     def __init__(self, num_classes, model_type="neural_net", model=None, freeze_layers=True, layer_num=-1, layer_id="feed_forward_output_relu", classifier_dims=2):
@@ -12,13 +13,12 @@ class LinearProbeModel(nn.Module):
         self.freeze_layers = freeze_layers
         self.layer_num = layer_num
         self.layer_id = layer_id
+        self.model = model
 
         self.classifier = nn.Linear(classifier_dims, num_classes)
 
-        if self.model_type == "neural_net":
-            self.model = model
-            if freeze_layers:
-                self.freeze_all_but_classifier(self.model)
+        if freeze_layers and model_type == "neural_net":
+            self.freeze_all_but_classifier(self.model)
 
     def forward(self, input):
         if self.model_type == "neural_net":
@@ -29,6 +29,29 @@ class LinearProbeModel(nn.Module):
             else:
                 features = layers[self.layer_num][self.layer_id]
             logits = self.classifier(features)
+
+        elif self.model_type == "umap":
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            print(input.shape)
+            input = input[:,0,:,:]
+            original_shape = input.shape
+            input = input.reshape(-1,input.shape[2])
+            input = input.detach().cpu().numpy()
+            print(input.shape)
+
+            reduced = self.model.transform(input)
+            print(reduced.shape)
+            reduced = torch.Tensor(reduced).to(self.device)
+            logits = self.classifier(reduced)
+            print(logits.shape)
+
+           
+        elif self.model_type == "pca":
+            # pass 
+            print("not implemented")
+
+        # otherwise the model is just raw spectogram 
         else:
             logits = self.classifier(input)
 
@@ -46,6 +69,11 @@ class LinearProbeModel(nn.Module):
 
         for param in self.classifier.parameters():
             param.requires_grad = True
+
+    # overwrite way we have access to the models device state 
+    def to(self, device):
+        self.device = device
+        return super(LinearProbeModel, self).to(device)
 
 class LinearProbeTrainer():
     def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=8, use_tqdm=True):
