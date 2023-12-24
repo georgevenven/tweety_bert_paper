@@ -14,6 +14,8 @@ class LinearProbeModel(nn.Module):
         self.layer_num = layer_num
         self.layer_id = layer_id
         self.model = model
+        self.classifier_dims = classifier_dims
+        self.num_classes = num_classes 
 
         self.classifier = nn.Linear(classifier_dims, num_classes)
 
@@ -33,20 +35,17 @@ class LinearProbeModel(nn.Module):
         elif self.model_type == "umap":
             # reformat for UMAP 
             # remove channel dim intended for conv network 
-            print(input.shape)
             input = input[:,0,:,:]
-            original_shape = input.shape
-            input = input.reshape(-1,input.shape[2])
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
             input = input.detach().cpu().numpy()
-            print(input.shape)
-
             reduced = self.model.transform(input)
-            print(reduced.shape)
             reduced = torch.Tensor(reduced).to(self.device)
             logits = self.classifier(reduced)
-            print(logits.shape)
+            
+            # shape is batch x num_classes (how many classes in the dataset) x sequence
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
-           
         elif self.model_type == "pca":
             # pass 
             print("not implemented")

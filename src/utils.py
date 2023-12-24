@@ -27,9 +27,6 @@ def load_config(config_path):
     return config
 
 def load_model(config_path, weight_path):
-    sys.path.append("src")
-    os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
-
     config = load_config(config_path)
 
     # Initialize model
