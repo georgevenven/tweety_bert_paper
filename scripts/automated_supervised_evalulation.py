@@ -52,6 +52,10 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
 
     for layer_id, layer_num, nn_dim in tqdm(layer_output_pairs, desc=f"Probing Layers in {folder}", leave=False, unit="layer"):
         print(f"Evaluating for layer: {layer_id}, number: {layer_num}")
+
+        umap_path = os.path.join(folder_path, f"UMAP of layer_num: {layer_num} sub_layer: {layer_id}.png") 
+        category_colors_path = os.path.join(project_root, "files/category_colors_llb3.pkl")  # Correctly form the path
+
         try:
             plot_umap_projection(
                 model=model, 
@@ -59,7 +63,7 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
                 data_dir=test_dir, 
                 subsample_factor=config['subsample'],  # Using new config parameter
                 remove_silences=False,  # Using new config parameter
-                samples=1, 
+                samples=1000, 
                 file_path=category_colors_path, 
                 layer_index=layer_num, 
                 dict_key=layer_id, 
@@ -83,7 +87,7 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
         classifier_model = classifier_model.to(device)
 
         # Create a trainer and perform training
-        trainer = LinearProbeTrainer(classifier_model, train_loader, test_loader, device, lr=1e-3, plotting=False, batches_per_eval=100, desired_total_batches=1, patience=4, use_tqdm=True)
+        trainer = LinearProbeTrainer(classifier_model, train_loader, test_loader, device, lr=1e-3, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=4, use_tqdm=True)
 
         trainer.train()
 
@@ -98,13 +102,6 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
             "total_error_rate": total_frame_error_rate,
             "class_error_rates": class_frame_error_rates
         }           
-
-
-        umap_path = os.path.join(folder_path, f"UMAP of layer_num: {layer_num} sub_layer: {layer_id}.png") 
-        category_colors_path = os.path.join(project_root, "files/category_colors_llb3.pkl")  # Correctly form the path
-
-       
-        break
 
     return all_results
 
