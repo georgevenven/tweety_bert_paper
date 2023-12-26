@@ -16,4 +16,3 @@ from spectogram_generator import WavtoSpec, copy_yarden_data
 
 # For copying Yardens data into one master location
 copy_yarden_data(['/home/george-vengrovski/Documents/data/llb3_data_matrices', '/home/george-vengrovski/Documents/data/llb11_data_matrices', '/home/george-vengrovski/Documents/data/llb16_data_matrices'], '/home/george-vengrovski/Documents/data/pretrain_dataset')
-

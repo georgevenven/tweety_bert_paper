@@ -5,6 +5,8 @@ from tqdm import tqdm
 import os 
 import json 
 import umap
+from sklearn.decomposition import PCA
+
 
 class LinearProbeModel(nn.Module):
     def __init__(self, num_classes, model_type="neural_net", model=None, freeze_layers=True, layer_num=-1, layer_id="feed_forward_output_relu", classifier_dims=2):
@@ -21,6 +23,8 @@ class LinearProbeModel(nn.Module):
 
         if freeze_layers and model_type == "neural_net":
             self.freeze_all_but_classifier(self.model)
+        if model_type == "pca":
+            self.pca = PCA(n_components=classifier_dims, random_state=42)
 
     def forward(self, input):
         if self.model_type == "neural_net":
@@ -43,16 +47,31 @@ class LinearProbeModel(nn.Module):
             reduced = torch.Tensor(reduced).to(self.device)
             logits = self.classifier(reduced)
             
-            # shape is batch x num_classes (how many classes in the dataset) x sequence
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length 
             logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
         elif self.model_type == "pca":
-            # pass 
-            print("not implemented")
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            input = input[:,0,:,:]
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
+            input = input.detach().cpu().numpy()
+            reduced = self.pca.fit_transform(input)
+            reduced = torch.Tensor(reduced).to(self.device)
+            logits = self.classifier(reduced)
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
-        # otherwise the model is just raw spectogram 
-        else:
+        elif self.model_type == "raw":
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            input = input[:,0,:,:]
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
             logits = self.classifier(input)
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
         return logits
     
@@ -232,8 +251,8 @@ class ModelEvaluator:
                         total_frames += class_mask.sum().item()
                         total_errors += incorrect_class.sum().item()
 
-                if progress_bar is not None:
-                    progress_bar.update(1)
+                    if progress_bar is not None:
+                        progress_bar.update(1)
 
         if progress_bar is not None:
             progress_bar.close()
@@ -245,9 +264,15 @@ class ModelEvaluator:
         total_frame_error_rate = (total_errors / total_frames * 100 if total_frames > 0 else float('nan'))
         return class_frame_error_rates, total_frame_error_rate
 
-    def save_results(self, class_frame_error_rates, total_frame_error_rate, folder_path, layer_id, layer_num):
+    def save_results(self, class_frame_error_rates, total_frame_error_rate, folder_path, layer_id=None, layer_num=None):
+        # Conditional filename based on whether layer_id and layer_num are provided
+        if layer_id is not None and layer_num is not None:
+            suffix = f'_{layer_id}_{layer_num}'
+        else:
+            suffix = ''
+
         # Save plot
-        plot_filename = f'frame_error_rate_plot_{layer_id}_{layer_num}.png'
+        plot_filename = f'frame_error_rate_plot{suffix}.png'
         self.plot_error_rates(class_frame_error_rates, plot_filename, folder_path)
 
         # Save data to JSON
@@ -255,7 +280,7 @@ class ModelEvaluator:
             'class_frame_error_rates': class_frame_error_rates,
             'total_frame_error_rate': total_frame_error_rate
         }
-        json_filename = f'results_{layer_id}_{layer_num}.json'
+        json_filename = f'results{suffix}.json'
         with open(os.path.join(folder_path, json_filename), 'w') as file:
             json.dump(results_data, file)
 
