@@ -1,28 +1,14 @@
 import torch
 import torch.nn as nn
-import math
-import numpy as np 
 import torch.nn.functional as F
-
-
-def scaled_dot_product_attention(Q, K, V, mask=None):
-    matmul_qk = torch.matmul(Q, K.transpose(-2, -1))
-    d_k = Q.size(-1)
-    scaled_attention_logits = matmul_qk / math.sqrt(d_k)
-
-    if mask is not None:
-        scaled_attention_logits += (mask * -1e9)  
-
-    attention_weights = F.softmax(scaled_attention_logits, dim=-1)
-
-    output = torch.matmul(attention_weights, V)
-    return output, attention_weights
+import math
 
 class CustomMultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads):
+    def __init__(self, d_model, num_heads, pos_enc_type, max_len=1024):
         super(CustomMultiHeadAttention, self).__init__()
         self.num_heads = num_heads
         self.d_model = d_model
+        self.pos_enc_type = pos_enc_type
 
         assert d_model % self.num_heads == 0
 
@@ -33,14 +19,20 @@ class CustomMultiHeadAttention(nn.Module):
         self.v_linear = nn.Linear(d_model, d_model)
 
         self.dense = nn.Linear(d_model, d_model)
-        
+
+        if pos_enc_type == "relative":
+            self.max_len = max_len
+            self.Er = nn.Parameter(torch.randn(max_len, self.depth))
+            # Adjust skew operation
+            self.register_buffer("zero_pad", torch.zeros((1, 1, 1, max_len)))
+
     def split_heads(self, x, batch_size):
         x = x.view(batch_size, -1, self.num_heads, self.depth)
         return x.permute(0, 2, 1, 3)
-        
+
     def forward(self, Q, K, V, mask):
         batch_size = Q.size(0)
-        
+
         Q = self.q_linear(Q)
         K = self.k_linear(K)
         V = self.v_linear(V)
@@ -49,30 +41,54 @@ class CustomMultiHeadAttention(nn.Module):
         K_split = self.split_heads(K, batch_size)
         V_split = self.split_heads(V, batch_size)
 
-        output, attention_weights = scaled_dot_product_attention(Q_split, K_split, V_split, mask)
-        
+
+        # code from  https://jaketae.github.io/study/relative-positional-encoding/
+        if self.pos_enc_type == "relative":
+            seq_len = Q.size(1)
+            if seq_len > self.max_len:
+                raise ValueError("Sequence length exceeds model capacity")
+
+            # Compute relative positional encodings with skew operation
+            Er = self.Er[:seq_len, :]
+            QEr = torch.matmul(Q_split, Er.transpose(-2, -1))
+            Srel = self.skew(QEr)
+            output, attention_weights = scaled_dot_product_attention(Q_split, K_split, V_split, Srel, mask)
+        else:
+            output, attention_weights = scaled_dot_product_attention(Q_split, K_split, V_split, mask)
+
         output = output.permute(0, 2, 1, 3).contiguous().view(batch_size, -1, self.d_model)
         output = self.dense(output)
 
         return {'output': output, 'attention_weights': attention_weights, 'Q': Q, 'K': K, 'V': V}
+
+    def skew(self, QEr):
+        # Dynamically create zero padding based on the shape of QEr
+        batch_size, num_heads, seq_len, _ = QEr.shape
+        zero_pad = torch.zeros((batch_size, num_heads, seq_len, 1), device=QEr.device, dtype=QEr.dtype)
+        
+        padded_QEr = torch.cat([zero_pad, QEr], dim=-1)
+        reshaped = padded_QEr.reshape(batch_size, num_heads, seq_len + 1, seq_len)
+        Srel = reshaped[:, :, 1:].contiguous()
+        return Srel
+
     
 class CustomEncoderBlock(nn.Module):
-    def __init__(self, d_model, num_heads, ffn_dim, dropout):
+    def __init__(self, d_model, num_heads, ffn_dim, dropout, pos_enc_type, length):
         super(CustomEncoderBlock, self).__init__()
 
-        self.self_attn = CustomMultiHeadAttention(d_model, num_heads)
+        self.self_attn = CustomMultiHeadAttention(d_model, num_heads, pos_enc_type, length)
         self.layer_norm1 = nn.LayerNorm(d_model)
         self.feed_forward1 = nn.Linear(d_model, ffn_dim)
         self.feed_forward2 = nn.Linear(ffn_dim, d_model)
         self.layer_norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         # Save input for residual connections
         input_residual = x
 
         # Attention mechanism
-        attn_result = self.self_attn(x, x, x, None)
+        attn_result = self.self_attn(x, x, x, mask)
 
         # Apply dropout to the attention output, then add the residual (input x)
         attn_output = self.dropout(attn_result['output'])
@@ -106,6 +122,24 @@ class CustomEncoderBlock(nn.Module):
         }
 
         return output_dict
+
+def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
+    matmul_qk = torch.matmul(Q, K.transpose(-2, -1))
+
+    # Add relative positional encodings
+    matmul_qk += pos_encodings
+
+    d_k = Q.size(-1)
+    scaled_attention_logits = matmul_qk / math.sqrt(d_k)
+
+    if mask is not None:
+        scaled_attention_logits += (mask * -1e9)  
+
+    attention_weights = F.softmax(scaled_attention_logits, dim=-1)
+
+    output = torch.matmul(attention_weights, V)
+    return output, attention_weights
+
     
 class PositionalEncoding(torch.nn.Module):
     def __init__(self, d_model, max_len=5000):
@@ -127,7 +161,7 @@ class PositionalEncoding(torch.nn.Module):
 
 
 class TweetyBERT(nn.Module):
-    def __init__(self, d_transformer, nhead_transformer, embedding_dim, num_labels, tau=0.1, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, sigma=1):
+    def __init__(self, d_transformer, nhead_transformer, embedding_dim, num_labels, tau=0.1, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
         super(TweetyBERT, self).__init__()
         self.tau = tau
         self.num_labels = num_labels
@@ -135,9 +169,9 @@ class TweetyBERT(nn.Module):
         self.m = m
         self.p = p 
         self.alpha = alpha 
-        self.sigma = sigma 
         self.d_transformer = d_transformer
         self.embedding_dim = embedding_dim
+        self.pos_enc_type = pos_enc_type
 
         # TweetyNet Front End
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
@@ -151,7 +185,7 @@ class TweetyBERT(nn.Module):
 
         # transformer
         self.transformerProjection = nn.Linear(64, d_transformer)
-        self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout) for _ in range(transformer_layers)])        
+        self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 
     def get_layer_output_pairs(self):
@@ -170,7 +204,6 @@ class TweetyBERT(nn.Module):
                 layer_output_pairs.append((key, layer_index, dim))
 
         return layer_output_pairs
-
 
     def feature_extractor_forward(self, x):
         x = F.gelu(self.conv1(x))
@@ -255,11 +288,18 @@ class TweetyBERT(nn.Module):
 
         intermediate_outputs["transformerProjection"] = x.clone().permute(0,2,1)
 
-        # sin pos enc
-        # x = self.pos_enc(x)
+        # double check this 
+        if self.pos_enc_type == "sinusodal":
+            #sin pos enc
+            x = self.pos_enc(x)
 
-        # learned pos encoding 
-        x = self.learned_pos_embedding(x)
+        elif self.pos_enc_type == "learned_embedding":
+            # learned pos encoding 
+            x = self.learned_pos_embedding(x)
+
+        # if relative or none do nothing because its handled elsewhere 
+        elif self.pos_enc_type == "relative" or self.pos_enc_type == None:
+            pass 
 
         intermediate_outputs["pos_enc"] = x.clone().permute(0,2,1)
 
@@ -288,7 +328,20 @@ class TweetyBERT(nn.Module):
         x = self.feature_extractor_forward(x)
         x = x.permute(0,2,1)
         x = self.transformerProjection(x)
-        x = self.learned_pos_embedding(x)
+        
+        # double check this 
+        if self.pos_enc_type == "sinusodal":
+            #sin pos enc
+            x = self.pos_enc(x)
+
+        elif self.pos_enc_type == "learned_embedding":
+            # learned pos encoding 
+            x = self.learned_pos_embedding(x)
+
+        # if relative or none do nothing because its handled elsewhere 
+        elif self.pos_enc_type == "relative" or self.pos_enc_type == None:
+            pass 
+
         x, all_outputs = self.transformer_forward(x)
         x = self.transformerDeProjection(x)
 

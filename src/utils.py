@@ -42,7 +42,7 @@ def load_model(config_path, weight_path):
         m=config['m'],
         p=config['p'],
         alpha=config['alpha'],
-        sigma=config['sigma'],
+        pos_enc_type=config['pos_enc_type'],
         length=config['context']
     )
 

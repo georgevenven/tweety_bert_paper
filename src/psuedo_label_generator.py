@@ -18,13 +18,16 @@ class SpectrogramProcessor:
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
                 
-    def __init__(self, data_root, train_dir, test_dir, n_clusters, train_prop=0.8):
+    def __init__(self, data_root, train_dir, test_dir, n_clusters, train_prop=0.8, model=None, device=None):
         self.data_root = data_root
         self.n_clusters = n_clusters
         self.train_dir = train_dir
         self.test_dir = test_dir
         self.train_prop = train_prop
         self.kmeans = None 
+        # Existing initialization code...
+        self.model = model
+        self.device = device
 
         # Create directories if they don't exist
         if not os.path.exists(self.train_dir):
@@ -174,50 +177,45 @@ class SpectrogramProcessor:
         np.savez(save_path, **f_dict)
 
 
-def iterate_training(model, device, train_dir, test_dir, iteration_n=1):
-    # Create directories if they don't exist
-    train_iteration = f"train_iteration_{iteration_n}"  # Modified
-    test_iteration = f"test_iteration_{iteration_n}"    # Modified
+    ### iterate training methods, later combine them !!!! check
+    def iterate_training(self, iteration_n=1):
+        # Create iteration-specific directories
+        train_iteration = os.path.join(self.train_dir, f"iteration_{iteration_n}")
+        test_iteration = os.path.join(self.test_dir, f"iteration_{iteration_n}")
 
-    if not os.path.exists(train_iteration):
-        os.mkdir(train_iteration)
+        os.makedirs(train_iteration, exist_ok=True)
+        os.makedirs(test_iteration, exist_ok=True)
 
-    if not os.path.exists(test_iteration):
-        os.mkdir(test_iteration)
+        # Process files for both train and test directories
+        self._process_directory(self.train_dir, train_iteration, iteration_n, "Train")
+        self._process_directory(self.test_dir, test_iteration, iteration_n, "Test")
 
-    # For each file in train and test, pass through the model, save in a new dir, save the logits in place of spectogram
-    for file in tqdm(os.listdir(train_dir), desc=f"Processing Train Files for Iteration {iteration_n}"):
-        if file.endswith(".npz"):
-            f = np.load(os.path.join(train_dir, file))
-            spectogram = f['s']
-            # Normalize (Z-score normalization)
-            mean = spectogram.mean()
-            std = spectogram.std()
-            spectogram = (spectogram - mean) / (std + 1e-7)
-            # Convert to torch tensors
-            spectogram = torch.from_numpy(spectogram).float().unsqueeze(0)
-            spectogram = spectogram.unsqueeze(0)
-            output, _ = model.inference_forward(spectogram.to(device))
+    def _process_directory(self, source_dir, target_dir, iteration_n, dir_type):
+        # Process each file in the directory
+        for file in tqdm(os.listdir(source_dir), desc=f"Processing {dir_type} Files for Iteration {iteration_n}"):
+            if file.endswith(".npz"):
+                self._process_file(file, source_dir, target_dir)
+
+    def _process_file(self, file, source_dir, target_dir):
+        f = np.load(os.path.join(source_dir, file))
+        spectogram = f['s']
+
+        # Normalize the spectrogram using Z-score normalization
+        mean = spectogram.mean()
+        std = spectogram.std()
+        normalized_spectogram = (spectogram - mean) / (std + 1e-7)  # Adding a small constant to prevent division by zero
+
+        # Convert the normalized spectrogram to a PyTorch tensor
+        # Assuming the model expects a 4D tensor of shape (batch_size, channels, height, width)
+        spectogram_tensor = torch.from_numpy(normalized_spectogram).float().unsqueeze(0)  # Adds a batch dimension
+        spectogram_tensor = spectogram_tensor.unsqueeze(0)  # Adds a channel dimension if the model expects it
+
+
+        try:
+            output, _ = self.model.inference_forward(spectogram.to(self.device))
             output = output.squeeze(0).T
-
             f_dict = {'s': f['s'], 'labels': f['labels'], 'new_labels': f['new_labels'], 'logits': output.detach().cpu().numpy()}
-            save_path = os.path.join(train_iteration, file)
+            save_path = os.path.join(target_dir, file)
             np.savez(save_path, **f_dict)
-
-    for file in tqdm(os.listdir(test_dir), desc=f"Processing Test Files for Iteration {iteration_n}"):
-        if file.endswith(".npz"):
-            f = np.load(os.path.join(test_dir, file))
-            spectogram = f['s']
-            # Normalize (Z-score normalization)
-            mean = spectogram.mean()
-            std = spectogram.std()
-            spectogram = (spectogram - mean) / (std + 1e-7)
-            # Convert to torch tensors
-            spectogram = torch.from_numpy(spectogram).float().unsqueeze(0)
-            spectogram = spectogram.unsqueeze(0)
-            output, _ = model.inference_forward(spectogram.to(device))
-            output = output.squeeze(0).T
-
-            f_dict = {'s': f['s'], 'labels': f['labels'], 'new_labels': f['new_labels'], 'logits': output.detach().cpu().numpy()}
-            save_path = os.path.join(test_iteration, file)
-            np.savez(save_path, **f_dict)
+        except Exception as e:
+            print(f"Error processing file {file}: {e}")
