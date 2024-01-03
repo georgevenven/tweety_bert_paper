@@ -37,13 +37,13 @@ class SongDataSet_Image(Dataset):
             # this is sloppy, but essentially the psuedo label generation process also crop the freq dim
             # so I have to do it here if the psuedo label generation process has not occured yet 
 
-            # Z-score normalization, because this also done in psuedo label generation process 
-            mean_val = spectogram.mean()
-            std_val = spectogram.std()
-            spectogram = (spectogram - mean_val) / (std_val + 1e-7)  # Adding a small constant to prevent division by zero
-            # Replace NaN values with zeros
-            spectogram[np.isnan(spectogram)] = 0
-            spectogram = spectogram[20:216,:]
+            # # Z-score normalization, because this also done in psuedo label generation process 
+            # mean_val = spectogram.mean()
+            # std_val = spectogram.std()
+            # spectogram = (spectogram - mean_val) / (std_val + 1e-7)  # Adding a small constant to prevent division by zero
+            # # Replace NaN values with zeros
+            # spectogram[np.isnan(spectogram)] = 0
+            # spectogram = spectogram[20:216,:]
 
 
         max_indices = np.argmax(spectogram, axis=0, keepdims=True)

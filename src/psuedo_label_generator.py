@@ -177,45 +177,45 @@ class SpectrogramProcessor:
         np.savez(save_path, **f_dict)
 
 
-    ### iterate training methods, later combine them !!!! check
-    def iterate_training(self, iteration_n=1):
-        # Create iteration-specific directories
-        train_iteration = os.path.join(self.train_dir, f"iteration_{iteration_n}")
-        test_iteration = os.path.join(self.test_dir, f"iteration_{iteration_n}")
+    # ### iterate training methods, later combine them !!!! check
+    # def iterate_training(self, iteration_n=1):
+    #     # Create iteration-specific directories
+    #     train_iteration = os.path.join(self.train_dir, f"iteration_{iteration_n}")
+    #     test_iteration = os.path.join(self.test_dir, f"iteration_{iteration_n}")
 
-        os.makedirs(train_iteration, exist_ok=True)
-        os.makedirs(test_iteration, exist_ok=True)
+    #     os.makedirs(train_iteration, exist_ok=True)
+    #     os.makedirs(test_iteration, exist_ok=True)
 
-        # Process files for both train and test directories
-        self._process_directory(self.train_dir, train_iteration, iteration_n, "Train")
-        self._process_directory(self.test_dir, test_iteration, iteration_n, "Test")
+    #     # Process files for both train and test directories
+    #     self._process_directory(self.train_dir, train_iteration, iteration_n, "Train")
+    #     self._process_directory(self.test_dir, test_iteration, iteration_n, "Test")
 
-    def _process_directory(self, source_dir, target_dir, iteration_n, dir_type):
-        # Process each file in the directory
-        for file in tqdm(os.listdir(source_dir), desc=f"Processing {dir_type} Files for Iteration {iteration_n}"):
-            if file.endswith(".npz"):
-                self._process_file(file, source_dir, target_dir)
+    # def _process_directory(self, source_dir, target_dir, iteration_n, dir_type):
+    #     # Process each file in the directory
+    #     for file in tqdm(os.listdir(source_dir), desc=f"Processing {dir_type} Files for Iteration {iteration_n}"):
+    #         if file.endswith(".npz"):
+    #             self._process_file(file, source_dir, target_dir)
 
-    def _process_file(self, file, source_dir, target_dir):
-        f = np.load(os.path.join(source_dir, file))
-        spectogram = f['s']
+    # def _process_file(self, file, source_dir, target_dir):
+    #     f = np.load(os.path.join(source_dir, file))
+    #     spectogram = f['s']
 
-        # Normalize the spectrogram using Z-score normalization
-        mean = spectogram.mean()
-        std = spectogram.std()
-        normalized_spectogram = (spectogram - mean) / (std + 1e-7)  # Adding a small constant to prevent division by zero
+    #     # Normalize the spectrogram using Z-score normalization
+    #     mean = spectogram.mean()
+    #     std = spectogram.std()
+    #     normalized_spectogram = (spectogram - mean) / (std + 1e-7)  # Adding a small constant to prevent division by zero
 
-        # Convert the normalized spectrogram to a PyTorch tensor
-        # Assuming the model expects a 4D tensor of shape (batch_size, channels, height, width)
-        spectogram_tensor = torch.from_numpy(normalized_spectogram).float().unsqueeze(0)  # Adds a batch dimension
-        spectogram_tensor = spectogram_tensor.unsqueeze(0)  # Adds a channel dimension if the model expects it
+    #     # Convert the normalized spectrogram to a PyTorch tensor
+    #     # Assuming the model expects a 4D tensor of shape (batch_size, channels, height, width)
+    #     spectogram_tensor = torch.from_numpy(normalized_spectogram).float().unsqueeze(0)  # Adds a batch dimension
+    #     spectogram_tensor = spectogram_tensor.unsqueeze(0)  # Adds a channel dimension if the model expects it
 
 
-        try:
-            output, _ = self.model.inference_forward(spectogram.to(self.device))
-            output = output.squeeze(0).T
-            f_dict = {'s': f['s'], 'labels': f['labels'], 'new_labels': f['new_labels'], 'logits': output.detach().cpu().numpy()}
-            save_path = os.path.join(target_dir, file)
-            np.savez(save_path, **f_dict)
-        except Exception as e:
-            print(f"Error processing file {file}: {e}")
+    #     try:
+    #         output, _ = self.model.inference_forward(spectogram.to(self.device))
+    #         output = output.squeeze(0).T
+    #         f_dict = {'s': f['s'], 'labels': f['labels'], 'new_labels': f['new_labels'], 'logits': output.detach().cpu().numpy()}
+    #         save_path = os.path.join(target_dir, file)
+    #         np.savez(save_path, **f_dict)
+    #     except Exception as e:
+    #         print(f"Error processing file {file}: {e}")

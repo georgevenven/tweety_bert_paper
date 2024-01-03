@@ -192,7 +192,7 @@ class TweetyBERT(nn.Module):
         layer_output_pairs = []
 
         # Create a dummy input for a complete forward pass
-        dummy_x = torch.randn(1, self.d_transformer)
+        dummy_x = torch.randn(1, self.d_transformer, 1)
         # Extract the transformer forward outputs
         _, all_outputs = self.transformer_forward(dummy_x)
 
