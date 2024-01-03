@@ -16,9 +16,8 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 # Plotting PCA, UMAP, and TweetyBERT plots of birdsong samples 
 
-weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/10mask_500_cluster_relative/saved_weights/model_step_49995.pth"
-config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/10mask_500_cluster_relative/config.json"
-
+weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/10_8mask_500_cluster_relative/saved_weights/model_step_49995.pth"
+config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/10_8mask_500_cluster_relative/config.json"
 with open(config_path, 'r') as f:
     config = json.load(f)  # Load and parse the JSON files
 
@@ -39,11 +38,11 @@ model=model,
 device=device, 
 data_dir="/home/george-vengrovski/Documents/data/llb3_data_matrices", 
 subsample_factor=config['subsample'],  # Using new config parameter
-remove_silences=True,  # Using new config parameter
+remove_silences=False,  # Using new config parameter
 samples=100, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=-1, 
-dict_key="V", 
+dict_key="intermediate_residual_stream", 
 time_bins_per_umap_point=1, 
 context=1000,  # Using new config parameter
 raw_spectogram=False,
