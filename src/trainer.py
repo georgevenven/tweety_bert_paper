@@ -104,27 +104,11 @@ class ModelTrainer:
 
         plt.tight_layout()
 
-    def loss(self, model, output, label, mask):
-        train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim = model.compute_loss(output, label, mask)
+    def loss(self, model, output, label, mask, spec):
+        # train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim = model.mse_loss(output, label, mask, spec)
+        train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim = model.mse_loss(output, label, mask, spec)
+
         return train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim
-
-    def calculate_max_possible_loss(self, model, loss_function, dataloader, iterations=100):
-        max_losses = []
-        for _ in range(iterations):
-            for _, (spec, label, _) in enumerate(dataloader):
-                # Generate random predictions
-                random_predictions = torch.rand_like(model(spec.to(self.device))[0])
-                
-                # Calculate loss
-                loss = loss_function(random_predictions, label.to(self.device)).item()
-                max_losses.append(loss)
-
-                # Break after one batch as we only need a sample estimate
-                break
-
-        # Calculate average of the maximum losses
-        average_max_loss = np.mean(max_losses)
-        return average_max_loss
 
     def visualize_masked_predictions(self, step, path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/closest_spec_vectors.npy"):
         self.model.eval()
@@ -142,69 +126,67 @@ class ModelTrainer:
             output, mask, _, all_outputs = self.model.train_forward(spec)
 
             # Compute loss and obtain targets and predicted_labels
-            _, _, _, targets, predicted_labels, loss_heatmap, softmax_csim = self.loss(self.model, output, label, mask)
+            _, _, _, targets, predicted_labels, loss_heatmap, softmax_csim = self.loss(self.model, output, label, mask, spec)
             loss_heatmap = loss_heatmap.squeeze().cpu().numpy()  # Assuming loss_heatmap has shape [1, 1000, 1]
 
-            # Normalize loss_heatmap to range [0, 1] based on max possible loss
-            # max_possible_loss = self.calculate_max_possible_loss(self.model, self.loss, self.test_loader)
-            max_possible_loss = 5
-            loss_heatmap_norm = loss_heatmap / max_possible_loss
-            loss_heatmap_norm = np.clip(loss_heatmap_norm, 0, 1)  # Ensure values are within [0, 1]
-            softmax_probs = softmax_csim.cpu().numpy()
+            # max_possible_loss = 5
+            # loss_heatmap_norm = loss_heatmap / max_possible_loss
+            # loss_heatmap_norm = np.clip(loss_heatmap_norm, 0, 1)  # Ensure values are within [0, 1]
+            # softmax_probs = softmax_csim.cpu().numpy()
 
-            # Convert targets and predicted_labels to CPU and to numpy arrays if they are tensors
-            targets = targets.cpu().numpy()
-            predicted_labels = predicted_labels.cpu().numpy()
+            # # Convert targets and predicted_labels to CPU and to numpy arrays if they are tensors
+            # targets = targets.cpu().numpy()
+            # predicted_labels = predicted_labels.cpu().numpy()
 
-            # Load prototype clusters
-            prototype_clusters = np.load(path)
+            # # Load prototype clusters
+            # prototype_clusters = np.load(path)
 
-            # Process targets and predicted labels
-            targets_img = np.array([prototype_clusters[label] for label in targets])
-            predicted_labels_img = np.array([prototype_clusters[label] for label in predicted_labels])
+            # # Process targets and predicted labels
+            # targets_img = np.array([prototype_clusters[label] for label in targets])
+            # predicted_labels_img = np.array([prototype_clusters[label] for label in predicted_labels])
 
-            combined_predictions_img = np.tensordot(softmax_probs[0], prototype_clusters, axes=([1],[0]))
+            # # combined_predictions_img = np.tensordot(softmax_probs[0], prototype_clusters, axes=([1],[0]))
 
-            # Visualize using Matplotlib
+            # # Visualize using Matplotlib
             fig, axs = plt.subplots(2, 2, figsize=(40, 20))
-            axs = axs.ravel()
+            # axs = axs.ravel()
 
-            # Plot for Spectrogram with Mask Overlay
-            filterSpec = spec[0, 0].cpu().detach().numpy()
-            mask_np = mask[0, 0].cpu().numpy()
+            # # Plot for Spectrogram with Mask Overlay
+            # filterSpec = spec[0, 0].cpu().detach().numpy()
+            # mask_np = mask[0, 0].cpu().numpy()
 
-            axs[0].imshow(filterSpec, aspect='auto', origin='lower')
-            axs[0].set_title('Spectrogram with Mask Overlay', fontsize=15)
+            # axs[0].imshow(filterSpec, aspect='auto', origin='lower')
+            # axs[0].set_title('Spectrogram with Mask Overlay', fontsize=15)
             
-            # Set the height of the mask bar and its position at the bottom of the spectrogram
-            mask_bar_height = 5
-            mask_bar_position = np.min(filterSpec)  # Position at the minimum value of the spectrogram
-            mask_colormap = ['green' if m == 1 else 'none' for m in mask_np]
-            for idx, color in enumerate(mask_colormap):
-                axs[0].add_patch(plt.Rectangle((idx, mask_bar_position), 1, mask_bar_height, edgecolor='none', facecolor=color))
+            # # Set the height of the mask bar and its position at the bottom of the spectrogram
+            # mask_bar_height = 5
+            # mask_bar_position = np.min(filterSpec)  # Position at the minimum value of the spectrogram
+            # mask_colormap = ['green' if m == 1 else 'none' for m in mask_np]
+            # for idx, color in enumerate(mask_colormap):
+            #     axs[0].add_patch(plt.Rectangle((idx, mask_bar_position), 1, mask_bar_height, edgecolor='none', facecolor=color))
 
-            # Plot for Targets Image
-            axs[1].imshow(targets_img.T, aspect='auto', origin='lower')
-            axs[1].set_title('Targets Image Reconstructed From K-means Centroids', fontsize=15)
+            # # Plot for Targets Image
+            # axs[1].imshow(targets_img.T, aspect='auto', origin='lower')
+            # axs[1].set_title('Targets Image Reconstructed From K-means Centroids', fontsize=15)
 
-            # Plot for Predicted Labels with Absolute Loss Opacity Overlay
-            axs[2].imshow(predicted_labels_img.T, aspect='auto', origin='lower')
-            axs[2].set_title('Predicted Labels Image With Absolute Loss', fontsize=15)
+            # # Plot for Predicted Labels with Absolute Loss Opacity Overlay
+            # axs[2].imshow(predicted_labels_img.T, aspect='auto', origin='lower')
+            # axs[2].set_title('Predicted Labels Image With Absolute Loss', fontsize=15)
 
-            # Overlay small red bars representing absolute loss
-            loss_bar_height = 5  # Set a fixed height for the loss bars
-            loss_bar_position = 0  # Position at the bottom of the plot
-            for idx, opacity in enumerate(loss_heatmap_norm):
-                axs[2].add_patch(plt.Rectangle((idx, loss_bar_position), 1, loss_bar_height, color='red', alpha=opacity))
+            # # Overlay small red bars representing absolute loss
+            # loss_bar_height = 5  # Set a fixed height for the loss bars
+            # loss_bar_position = 0  # Position at the bottom of the plot
+            # for idx, opacity in enumerate(loss_heatmap_norm):
+            #     axs[2].add_patch(plt.Rectangle((idx, loss_bar_position), 1, loss_bar_height, color='red', alpha=opacity))
             
-            # Plot for Combined Predictions Image with Confidence Overlay
-            axs[3].imshow(combined_predictions_img.T, aspect='auto', origin='lower')
-            axs[3].set_title('Combined Predictions Image With Confidence', fontsize=15)
+            # # Plot for Combined Predictions Image with Confidence Overlay
+            # axs[3].imshow(combined_predictions_img.T, aspect='auto', origin='lower')
+            # axs[3].set_title('Combined Predictions Image With Confidence', fontsize=15)
 
-            # Calculate and overlay the confidence line plot with 50% opacity
-            confidence = softmax_probs[0].max(axis=1) * prototype_clusters.shape[1]  # Rescale confidence
-            timebins = np.arange(len(confidence))  # Array of timebins
-            axs[3].plot(timebins, confidence, color='red', linewidth=2, alpha=0.5)  # Set alpha to 0.5 for 50% opacity
+            # # Calculate and overlay the confidence line plot with 50% opacity
+            # confidence = softmax_probs[0].max(axis=1) * prototype_clusters.shape[1]  # Rescale confidence
+            # timebins = np.arange(len(confidence))  # Array of timebins
+            # axs[3].plot(timebins, confidence, color='red', linewidth=2, alpha=0.5)  # Set alpha to 0.5 for 50% opacity
 
             plt.savefig(os.path.join(self.predictions_subfolder_path, f'Spectrogram_{step}.png'))
             plt.close(fig)
@@ -229,8 +211,7 @@ class ModelTrainer:
                 spec = spec.to(self.device)
                 label = label.to(self.device)
                 output, mask, masked_spec, all_outputs = self.model.train_forward(spec)
-                val_loss, masked_seq_acc, unmasked_seq_acc, _, _, _, _ = self.loss(self.model, output, label, mask)
-                total_val_loss += val_loss.item()
+                val_loss, masked_seq_acc, unmasked_seq_acc, _, _, _, _ = self.loss(self.model, output, label, mask, spec)
                 total_masked_seq_acc += masked_seq_acc.item()
                 total_unmasked_seq_acc += unmasked_seq_acc.item()
                 num_val_batches += 1
@@ -275,7 +256,7 @@ class ModelTrainer:
             ground_truth = ground_truth.to(self.device)
 
             output, mask, masked_spec, all_outputs = self.model.train_forward(spec)
-            train_loss, masked_seq_acc, unmasked_seq_acc, _, _, _, _ = self.loss(self.model, output, label, mask)
+            train_loss, masked_seq_acc, unmasked_seq_acc, _, _, _, _ = self.loss(self.model, output, label, mask, spec)
             l1_reg = self.l1_lambda * self.l1_norm()
             loss = train_loss + l1_reg
 
