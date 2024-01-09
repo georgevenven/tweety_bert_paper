@@ -91,6 +91,9 @@ class CustomEncoderBlock(nn.Module):
         # Attention mechanism
         attn_result = self.self_attn(x, x, x, mask)
 
+        # attention weights context length * context length dim * 1 (softmax value)
+        attention_graph = (attn_result['attention_weights'])
+
         # Apply dropout to the attention output, then add the residual (input x)
         attn_output = self.dropout(attn_result['output'])
         attn_output += input_residual  # Intermediate residual stream
@@ -120,6 +123,7 @@ class CustomEncoderBlock(nn.Module):
             'intermediate_residual_stream': input_residual,
             'feed_forward_output_relu': ff_output_relu,
             'feed_forward_output': ff_output_norm,
+            'attention_graph': attention_graph
         }
 
         return output_dict
@@ -134,7 +138,7 @@ def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     scaled_attention_logits = matmul_qk / math.sqrt(d_k)
 
     if mask is not None:
-        scaled_attention_logits += (mask * -1e9)  
+        scaled_attention_logits += (mask * -1e9)   
 
     attention_weights = F.softmax(scaled_attention_logits, dim=-1)
 
