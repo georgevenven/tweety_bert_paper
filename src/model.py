@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import matplotlib.pyplot as plt 
 
 class CustomMultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, pos_enc_type, max_len=1024):
@@ -90,6 +91,9 @@ class CustomEncoderBlock(nn.Module):
         # Attention mechanism
         attn_result = self.self_attn(x, x, x, mask)
 
+        # attention weights context length * context length dim * 1 (softmax value)
+        attention_graph = (attn_result['attention_weights'])
+
         # Apply dropout to the attention output, then add the residual (input x)
         attn_output = self.dropout(attn_result['output'])
         attn_output += input_residual  # Intermediate residual stream
@@ -119,6 +123,7 @@ class CustomEncoderBlock(nn.Module):
             'intermediate_residual_stream': input_residual,
             'feed_forward_output_relu': ff_output_relu,
             'feed_forward_output': ff_output_norm,
+            'attention_graph': attention_graph
         }
 
         return output_dict
@@ -133,7 +138,7 @@ def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     scaled_attention_logits = matmul_qk / math.sqrt(d_k)
 
     if mask is not None:
-        scaled_attention_logits += (mask * -1e9)  
+        scaled_attention_logits += (mask * -1e9)   
 
     attention_weights = F.softmax(scaled_attention_logits, dim=-1)
 
@@ -344,10 +349,9 @@ class TweetyBERT(nn.Module):
 
         x, all_outputs = self.transformer_forward(x)
         x = self.transformerDeProjection(x)
-
         return x, all_outputs
 
-    def compute_loss(self, predictions, targets, mask):
+    def cross_entropy_loss(self, predictions, targets, mask):
         epsilon = 1e-6
         alpha = self.alpha
 
@@ -403,18 +407,61 @@ class TweetyBERT(nn.Module):
 
         return combined_loss, masked_sequence_accuracy, unmasked_sequence_accuracy, targets, predicted_labels, loss_heatmap, softmax_csim
 
-    def cross_entropy_loss(self, predictions, targets):
-        """loss function for TweetyNet
-        Parameters
-        ----------
-        y_pred : torch.Tensor
-            output of TweetyNet model, shape (batch, classes, timebins)
-        y_true : torch.Tensor
-            one-hot encoded labels, shape (batch, classes, timebins)
-        Returns
-        -------
-        loss : torch.Tensor
-            mean cross entropy loss
+
+    def mse_loss(self, predictions, mask, spec):
+        epsilon = 1e-6
+        alpha = self.alpha
+
+        # think about what this normalization means 
+        # spec = self.normalize_tensor(spec)
+
+        # predictions shape is batch, seq len, embedding size (has to match freq bin)
+        # spec shape is batch, channel, freq bin, seq len 
+
+        spec = spec.squeeze(1)
+        reshaped_spec = spec.permute(0,2,1)
+
+        # MSE Loss
+        mse_loss_func = nn.MSELoss(reduction='none')
+        mse_loss = mse_loss_func(predictions, reshaped_spec)
+
+        # Apply mask
+        masked_indices = mask[:, 0, :] == 1.0
+        unmasked_indices = ~masked_indices
+
+        if masked_indices.sum() > 0:
+            masked_loss = mse_loss[masked_indices].mean()
+        else:
+            masked_loss = torch.tensor(epsilon).to(predictions.device)
+
+        if unmasked_indices.sum() > 0:
+            unmasked_loss = mse_loss[unmasked_indices].mean()
+        else:
+            unmasked_loss = torch.tensor(epsilon).to(predictions.device)
+
+        # Combine masked and unmasked loss
+        combined_loss = alpha * masked_loss + (1 - alpha) * unmasked_loss
+
+        return combined_loss, masked_loss, unmasked_loss, mse_loss
+    
+    def normalize_tensor(self, tensor):
         """
-        loss = nn.CrossEntropyLoss()
-        return loss(predictions, targets)
+        Normalize a tensor to have values between 0 and 1.
+        
+        Args:
+        tensor (torch.Tensor): A tensor of shape (batch, seq_len, embedding_size).
+
+        Returns:
+        torch.Tensor: Normalized tensor with values between 0 and 1.
+        """
+        # Flattening the tensor for min and max calculation
+        flat_tensor = tensor.reshape(-1)
+
+        # Finding the minimum and maximum values
+        min_val = flat_tensor.min()
+        max_val = flat_tensor.max()
+
+        # Normalizing the tensor
+        normalized_tensor = (tensor - min_val) / (max_val - min_val)
+
+        return normalized_tensor
