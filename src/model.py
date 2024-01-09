@@ -351,7 +351,7 @@ class TweetyBERT(nn.Module):
         x = self.transformerDeProjection(x)
         return x, all_outputs
 
-    def compute_loss(self, predictions, targets, mask, spec):
+    def cross_entropy_loss(self, predictions, targets, mask):
         epsilon = 1e-6
         alpha = self.alpha
 
@@ -408,7 +408,7 @@ class TweetyBERT(nn.Module):
         return combined_loss, masked_sequence_accuracy, unmasked_sequence_accuracy, targets, predicted_labels, loss_heatmap, softmax_csim
 
 
-    def mse_loss(self, predictions, targets, mask, spec):
+    def mse_loss(self, predictions, mask, spec):
         epsilon = 1e-6
         alpha = self.alpha
 
@@ -442,23 +442,7 @@ class TweetyBERT(nn.Module):
         # Combine masked and unmasked loss
         combined_loss = alpha * masked_loss + (1 - alpha) * unmasked_loss
 
-        return combined_loss, masked_loss, unmasked_loss, targets, targets, mse_loss, mse_loss 
-
-    def cross_entropy_loss(self, predictions, targets):
-        """loss function for TweetyNet
-        Parameters
-        ----------
-        y_pred : torch.Tensor
-            output of TweetyNet model, shape (batch, classes, timebins)
-        y_true : torch.Tensor
-            one-hot encoded labels, shape (batch, classes, timebins)
-        Returns
-        -------
-        loss : torch.Tensor
-            mean cross entropy loss
-        """
-        loss = nn.CrossEntropyLoss()
-        return loss(predictions, targets)
+        return combined_loss, masked_loss, unmasked_loss, mse_loss
     
     def normalize_tensor(self, tensor):
         """
