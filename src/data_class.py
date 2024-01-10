@@ -9,11 +9,9 @@ import torch.nn.functional as F
 import pickle
 
 class SongDataSet_Image(Dataset):
-    def __init__(self, file_dir, num_classes=196, subsampling=False, subsample_factor=4, remove_silences=False, psuedo_labels_generated=True):
+    def __init__(self, file_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=True):
         self.file_path = []
         self.num_classes = num_classes
-        self.subsampling = subsampling
-        self.subsample_factor = subsample_factor
         self.remove_silences = remove_silences
         self.psuedo_labels_generated = psuedo_labels_generated
 
@@ -66,12 +64,6 @@ class SongDataSet_Image(Dataset):
             spectogram = spectogram[not_silent_indexes]
             psuedo_labels = psuedo_labels[not_silent_indexes]
             ground_truth_labels = ground_truth_labels[not_silent_indexes]
-            
-
-        if self.subsampling == True:
-            spectogram = spectogram[::self.subsample_factor]
-            psuedo_labels = psuedo_labels[::self.subsample_factor]
-            ground_truth_labels = ground_truth_labels[::self.subsample_factor]
 
         # Convert label and psuedo label to one-hot encoding
         ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()

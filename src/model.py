@@ -72,7 +72,6 @@ class CustomMultiHeadAttention(nn.Module):
         Srel = reshaped[:, :, 1:].contiguous()
         return Srel
 
-    
 class CustomEncoderBlock(nn.Module):
     def __init__(self, d_model, num_heads, ffn_dim, dropout, pos_enc_type, length):
         super(CustomEncoderBlock, self).__init__()
@@ -85,48 +84,45 @@ class CustomEncoderBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
-        # Save input for residual connections
-        input_residual = x
-
+        # Pre-LN: Layer norm applied first
+        x_norm = self.layer_norm1(x)
+        
         # Attention mechanism
-        attn_result = self.self_attn(x, x, x, mask)
+        attn_result = self.self_attn(x_norm, x_norm, x_norm, mask)
 
-        # attention weights context length * context length dim * 1 (softmax value)
+        # Attention weights context length * context length dim * 1 (softmax value)
         attention_graph = (attn_result['attention_weights'])
 
         # Apply dropout to the attention output, then add the residual (input x)
         attn_output = self.dropout(attn_result['output'])
-        attn_output += input_residual  # Intermediate residual stream
-        # Apply layer norm after adding residual
-        attn_output_norm = self.layer_norm1(attn_output)
+        attn_output += x  # Residual connection with original input
 
-        # Save attention output before layer norm for residual connection in MLP
-        mlp_residual = attn_output_norm
+        # Pre-LN for MLP
+        mlp_input_norm = self.layer_norm2(attn_output)
 
         # MLP / Feed-forward network
-        ff_output = self.feed_forward1(mlp_residual)
+        ff_output = self.feed_forward1(mlp_input_norm)
         ff_output_relu = F.relu(ff_output)  # Output after ReLU
         ff_output = self.feed_forward2(ff_output_relu)
 
         # Apply dropout to the feed-forward output, then add the residual
         ff_output = self.dropout(ff_output)
-        ff_output += mlp_residual  # Intermediate residual stream
-        # Apply layer norm after adding residual
-        ff_output_norm = self.layer_norm2(ff_output)
+        ff_output += attn_output  # Residual connection with the output of attention
 
         # Output dictionary
         output_dict = {
             'Q': attn_result['Q'],
             'K': attn_result['K'],
             'V': attn_result['V'],
-            'attention_output': attn_output_norm,
-            'intermediate_residual_stream': input_residual,
+            'attention_output': attn_output,
+            'intermediate_residual_stream': x,
             'feed_forward_output_relu': ff_output_relu,
-            'feed_forward_output': ff_output_norm,
+            'feed_forward_output': ff_output,
             'attention_graph': attention_graph
         }
 
         return output_dict
+
 
 def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     matmul_qk = torch.matmul(Q, K.transpose(-2, -1))

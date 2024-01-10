@@ -12,7 +12,7 @@ class ModelTrainer:
     def __init__(self, model, train_loader, test_loader, optimizer, device, 
              max_steps=10000, eval_interval=500, save_interval=1000, 
              weights_save_dir='saved_weights', 
-             save_weights=True, overfit_on_batch=False, l1_lambda=0.01, experiment_dir=None, loss_function=None):
+             save_weights=True, overfit_on_batch=False, l1_lambda=0.01, experiment_dir=None, loss_function=None, early_stopping=True, patience=8, trailing_avg_window=1000):
 
         self.overfit_on_batch = overfit_on_batch
         self.fixed_batch = None  # Will hold the batch data when overfitting
@@ -25,6 +25,10 @@ class ModelTrainer:
         self.eval_interval = eval_interval
         self.scheduler = StepLR(optimizer, step_size=10000, gamma=1)
         self.l1_lambda = l1_lambda  # L0 regularization weight
+        self.early_stopping = early_stopping
+        self.patience = patience 
+        self.trailing_avg_window = trailing_avg_window  # Window size for trailing average calculation
+
 
         self.loss_list = []
         self.val_loss_list = []
@@ -295,6 +299,9 @@ class ModelTrainer:
 
     def train(self):
         step = 0
+        best_val_loss = float('inf')  # Best validation loss seen so far
+        steps_since_improvement = 0  # Counter for steps since last improvement
+
         train_iter = iter(self.train_loader)
 
         # Initialize lists for storing metrics
@@ -366,8 +373,21 @@ class ModelTrainer:
                         f'Masked Seq Acc: {raw_masked_seq_acc_list[-1]:.4f}, '
                         f'Unmasked Seq Acc: {raw_unmasked_seq_acc_list[-1]:.4f}, '
                         f'Validation Loss: {val_loss:.4e}')  # Validation loss is added here
-
                     
+                current_val_loss = np.mean(self.val_loss_list[-self.trailing_avg_window:])
+                is_best = current_val_loss < best_val_loss
+
+                if is_best:
+                    best_val_loss = current_val_loss
+                    steps_since_improvement = 0
+                else:
+                    steps_since_improvement += 1
+
+                # Check for early stopping
+                if self.early_stopping and steps_since_improvement >= self.patience:
+                    print(f"Early stopping triggered at step {step}. No improvement for {self.patience} evaluation intervals.")
+                    break  # Exit the training loop
+
             # Update validation lists with the latest validation metrics
             self.val_masked_sequence_accuracy_list.append(avg_masked_seq_acc)
             self.val_unmasked_sequence_accuracy_list.append(avg_unmasked_seq_acc)
