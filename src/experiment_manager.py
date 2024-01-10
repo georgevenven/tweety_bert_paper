@@ -52,10 +52,10 @@ class ExperimentRunner:
             
         # Data Loading
         collate_fn = CollateFunction(segment_length=config['context'])
-        train_dataset = SongDataSet_Image(config['train_dir'], num_classes=config['num_clusters'], subsampling=True, subsample_factor=config['subsample'], remove_silences=config['remove_silences'])
-        test_dataset = SongDataSet_Image(config['test_dir'], num_classes=config['num_clusters'], subsampling=True, subsample_factor=config['subsample'], remove_silences=config['remove_silences'])
+        train_dataset = SongDataSet_Image(config['train_dir'], num_classes=config['num_clusters'], remove_silences=config['remove_silences'])
+        test_dataset = SongDataSet_Image(config['test_dir'], num_classes=config['num_clusters'], remove_silences=config['remove_silences'])
         train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
-        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn, num_workers=16)
+        test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
         
         # Initialize model
         model = TweetyBERT(
@@ -100,9 +100,12 @@ class ExperimentRunner:
             eval_interval=config['eval_interval'], 
             save_interval=config['save_interval'], 
             overfit_on_batch=False, 
-            l1_lambda=0,
-            loss_function = config['loss_function']
+            loss_function = config['loss_function'],
+            early_stopping=config['early_stopping'],
+            patience=config['patience'],
+            trailing_avg_window=config['trailing_avg_window']
         )        
+
         # Train the model
         trainer.train()
         

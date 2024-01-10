@@ -17,7 +17,7 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 # Plotting PCA, UMAP, and TweetyBERT plots of birdsong samples 
 
 weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/MSE_Test_a=.5_m=100/saved_weights/model_step_19998.pth"
-config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/MSE_Test_a=.5_m=100/config.json"
+config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/MSE_Test/config.json"
 with open(config_path, 'r') as f:
     config = json.load(f)  # Load and parse the JSON files
 
