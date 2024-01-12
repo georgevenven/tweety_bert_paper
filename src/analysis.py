@@ -9,13 +9,13 @@ from torch.utils.data import DataLoader
 from sklearn.decomposition import PCA
 
 
-def load_data( data_dir, subsample_factor, remove_silences=False, context=1000, psuedo_labels_generated=False):
+def load_data( data_dir,remove_silences=False, context=1000, psuedo_labels_generated=False):
     collate_fn = CollateFunction(context)
-    dataset = SongDataSet_Image(data_dir, num_classes=196, subsampling=True, subsample_factor=subsample_factor, remove_silences=remove_silences, psuedo_labels_generated=psuedo_labels_generated)
+    dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=remove_silences, psuedo_labels_generated=psuedo_labels_generated)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=16)
     return loader 
 
-def plot_umap_projection(model, device, data_dir="test_llb16", subsample_factor=1, 
+def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
                          layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
                          context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False):
@@ -23,7 +23,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16", subsample_factor=
     ground_truth_labels_arr = []
     spec_arr = [] 
 
-    data_loader = load_data(data_dir=data_dir, subsample_factor=subsample_factor, remove_silences=remove_silences, context=context, psuedo_labels_generated=False)
+    data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=False)
     
     for i, (data, _, ground_truth_label) in enumerate(data_loader):
         if i == samples:
@@ -142,7 +142,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16", subsample_factor=
 
  
 
-def plot_pca_projection(model, device, data_dir="test_llb16", subsample_factor=1, 
+def plot_pca_projection(model, device, data_dir="test_llb16", 
                         remove_silences=False, samples=100, file_path='category_colors.pkl', 
                         layer_index=None, dict_key=None, time_bins_per_pca_point=100, 
                         context=1000, save_dir=None, raw_spectogram=False):
@@ -150,7 +150,7 @@ def plot_pca_projection(model, device, data_dir="test_llb16", subsample_factor=1
     ground_truth_labels_arr = []
 
     # Assuming load_data is a function you have defined elsewhere
-    data_loader = load_data(data_dir=data_dir, subsample_factor=subsample_factor, 
+    data_loader = load_data(data_dir=data_dir,
                             remove_silences=remove_silences, context=context, 
                             psuedo_labels_generated=False)
     

@@ -123,7 +123,6 @@ class CustomEncoderBlock(nn.Module):
 
         return output_dict
 
-
 def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     matmul_qk = torch.matmul(Q, K.transpose(-2, -1))
 
@@ -140,6 +139,7 @@ def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
 
     output = torch.matmul(attention_weights, V)
     return output, attention_weights
+
 
     
 class PositionalEncoding(torch.nn.Module):

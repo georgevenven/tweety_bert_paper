@@ -217,9 +217,9 @@ class ModelTrainer:
         axs[0].set_title('Original Spectrogram with Mask', fontsize=35, pad=20)  # Added pad for title
         self._add_mask_overlay(axs[0], mask_np[0], spec_np[0], mask_bar_height)
 
-        # Plot 2: Prediction MSE with Mask
+        # Plot 2: Model Prediction with Mask
         axs[1].imshow(output[0].T, aspect='auto', origin='lower')
-        axs[1].set_title('Prediction MSE with Mask', fontsize=35, pad=20)  # Added pad for title
+        axs[1].set_title('Model Prediction with Mask', fontsize=35, pad=20)  # Added pad for title
         self._add_mask_overlay(axs[1], mask_np[0], loss_grid[0], mask_bar_height)
 
         # Plot 3: Areas of Loss with Mask
@@ -331,9 +331,7 @@ class ModelTrainer:
             output, mask, masked_spec, all_outputs = self.model.train_forward(spec)
 
             # there can be a variable number of variables returned 
-            train_loss, masked_seq_acc, unmasked_seq_acc, *rest = self.loss(self.model, output, label, mask, spec)
-            l1_reg = self.l1_lambda * self.l1_norm()
-            loss = train_loss + l1_reg
+            loss, masked_seq_acc, unmasked_seq_acc, *rest = self.loss(self.model, output, label, mask, spec)
 
             # Backpropagation and optimization
             self.optimizer.zero_grad()
@@ -343,11 +341,11 @@ class ModelTrainer:
 
             # Store metrics after each step
             raw_loss_list.append(loss.item())
-            raw_masked_seq_acc_list.append(masked_seq_acc.item())
-            raw_unmasked_seq_acc_list.append(unmasked_seq_acc.item())
 
             # Your existing code where validation loss is computed
             val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step)
+            raw_masked_seq_acc_list.append(avg_masked_seq_acc)
+            raw_unmasked_seq_acc_list.append(avg_unmasked_seq_acc)
 
             # Evaluation and logging
             if step % self.eval_interval == 0 or step == 0:
@@ -386,6 +384,7 @@ class ModelTrainer:
                 # Check for early stopping
                 if self.early_stopping and steps_since_improvement >= self.patience:
                     print(f"Early stopping triggered at step {step}. No improvement for {self.patience} evaluation intervals.")
+                    self.save_model(step)
                     break  # Exit the training loop
 
             # Update validation lists with the latest validation metrics
@@ -400,8 +399,11 @@ class ModelTrainer:
 
             if step % self.save_interval == 0:
                 self.save_model(step)
-
+            
             step += 1
+
+            if step >= self.max_steps:
+                self.save_model(step)
             
     def plot_results(self, save_plot=False, config=None, smoothing_window=100):
         # Calculate smoothed curves for the metrics

@@ -21,17 +21,24 @@ class Config:
         self.test_dir = test_dir
         self.n_clusters = n_clusters
 
+# # Load configurations from a file or define them in a list
+# configs = [
+#     # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_25", "files/llb3_test_25", 25),
+#     # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_100", "files/llb3_test_100", 100),
+#     # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_500", "files/llb3_test_500", 500),
+#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_25", "files/llb11_test_25", 25),
+#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_100", "files/llb11_test_100", 100),
+#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_500", "files/llb11_test_500", 500),
+#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_25", "files/llb16_test_25", 25),
+#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_100", "files/llb16_test_100", 100),
+#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_500", "files/llb16_test_500", 500)
+# ]
+        
 # Load configurations from a file or define them in a list
 configs = [
-    # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_25", "files/llb3_test_25", 25),
-    # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_100", "files/llb3_test_100", 100),
-    # Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_500", "files/llb3_test_500", 500),
-    Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_25", "files/llb11_test_25", 25),
-    Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_100", "files/llb11_test_100", 100),
-    Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_500", "files/llb11_test_500", 500),
-    Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_25", "files/llb16_test_25", 25),
-    Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_100", "files/llb16_test_100", 100),
-    Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_500", "files/llb16_test_500", 500)
+    # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train", test_dir="files/llb3_test", n_clusters=50),
+    # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
+    Config(data_root="/home/george-vengrovski/Documents/data/llb16_data_matrices", train_dir="files/llb16_train", test_dir="files/llb16_test", n_clusters=50)
 ]
 
 # Iterate over the configurations and process
