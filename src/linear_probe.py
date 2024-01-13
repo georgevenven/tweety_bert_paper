@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os 
 import json 
-import umap
+import numpy as np 
 from sklearn.decomposition import PCA
 
 
@@ -94,7 +94,7 @@ class LinearProbeModel(nn.Module):
         return super(LinearProbeModel, self).to(device)
 
 class LinearProbeTrainer():
-    def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=8, use_tqdm=True):
+    def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=8, use_tqdm=True, moving_avg_window = 200):
         self.device = device
         self.model = model.to(self.device)
         self.train_loader = train_loader
@@ -105,6 +105,7 @@ class LinearProbeTrainer():
         self.desired_total_batches = desired_total_batches
         self.patience = patience
         self.use_tqdm = use_tqdm
+        self.moving_avg_window = moving_avg_window  # Window size for moving average
 
     def frame_error_rate(self, y_pred, y_true):
         y_pred = y_pred.permute(0,2,1).argmax(-1)
@@ -135,13 +136,19 @@ class LinearProbeTrainer():
         avg_frame_error = total_frame_error / num_val_batches
         return avg_val_loss, avg_frame_error
 
+    def moving_average(self, values, window):
+        """Simple moving average over a list of values"""
+        weights = np.repeat(1.0, window) / window
+        sma = np.convolve(values, weights, 'valid')
+        return sma.tolist()
+
     def train(self):
         total_batches = 0
         best_val_loss = float('inf')
         num_val_no_improve = 0
         stop_training = False
 
-        loss_list, val_loss_list, frame_error_rate_list = [], [], []
+        raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list = [], [], []
 
         while total_batches < self.desired_total_batches:
             for i, (spectrogram, label, _) in enumerate(self.train_loader):
@@ -160,30 +167,33 @@ class LinearProbeTrainer():
                 total_batches += 1
                 if total_batches % self.batches_per_eval == 0:
                     avg_val_loss, avg_frame_error = self.validate_model()
+
+                    raw_loss_list.append(loss.item())
+                    raw_val_loss_list.append(avg_val_loss)
+                    raw_frame_error_rate_list.append(avg_frame_error)
+
+                    if len(raw_val_loss_list) >= self.moving_avg_window:
+                        smooth_val_loss = self.moving_average(raw_val_loss_list, self.moving_avg_window)[-1]
+                        if smooth_val_loss < best_val_loss:
+                            best_val_loss = smooth_val_loss
+                            num_val_no_improve = 0
+                        else:
+                            num_val_no_improve += 1
+                            if num_val_no_improve >= self.patience:
+                                print("Early stopping triggered")
+                                stop_training = True
+                                break
+
                     if self.use_tqdm: 
                         print(f'Batch {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
 
-                    if avg_val_loss < best_val_loss:
-                        best_val_loss = avg_val_loss
-                        num_val_no_improve = 0
-                    else:
-                        num_val_no_improve += 1
-                        if num_val_no_improve >= self.patience:
-                            print("Early stopping triggered")
-                            stop_training = True
-                            break
-
-                    loss_list.append(loss.item())
-                    val_loss_list.append(avg_val_loss)
-                    frame_error_rate_list.append(avg_frame_error)
                 if stop_training:
                     break
             if stop_training:
                 break
 
         if self.plotting:
-            self.plot_results(loss_list, val_loss_list, frame_error_rate_list)
-
+            self.plot_results(raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list)
 
     def plot_results(self, loss_list, val_loss_list, frame_error_rate_list):
         plt.figure(figsize=(10, 5))

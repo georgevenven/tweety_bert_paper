@@ -4,15 +4,12 @@ import torch
 from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 import json
-from scipy.ndimage import zoom
-from matplotlib.patches import Rectangle
-# plt.rcParams["font.family"] = "Liberation Serif"
 
 class ModelTrainer:
     def __init__(self, model, train_loader, test_loader, optimizer, device, 
              max_steps=10000, eval_interval=500, save_interval=1000, 
              weights_save_dir='saved_weights', 
-             save_weights=True, overfit_on_batch=False, l1_lambda=0.01, experiment_dir=None, loss_function=None, early_stopping=True, patience=8, trailing_avg_window=1000):
+             save_weights=True, overfit_on_batch=False, l1_lambda=0.01, experiment_dir=None, loss_function=None, early_stopping=True, patience=8, trailing_avg_window=1000, path_to_prototype_clusters=None):
 
         self.overfit_on_batch = overfit_on_batch
         self.fixed_batch = None  # Will hold the batch data when overfitting
@@ -28,7 +25,6 @@ class ModelTrainer:
         self.early_stopping = early_stopping
         self.patience = patience 
         self.trailing_avg_window = trailing_avg_window  # Window size for trailing average calculation
-
 
         self.loss_list = []
         self.val_loss_list = []
@@ -57,6 +53,9 @@ class ModelTrainer:
             self.loss_function = 'cross_entropy'
         else:
             self.loss_function = loss_function
+
+        if path_to_prototype_clusters is not None:
+            self.path_to_prototype_clusters = path_to_prototype_clusters
 
     def sum_squared_weights(self):
         sum_of_squares = sum(torch.sum(p ** 2) for p in self.model.parameters())
@@ -123,64 +122,58 @@ class ModelTrainer:
             raise Exception("Error: incorrect loss function has been chosen")
         
     def visualize_cross_entropy(self, output, label, mask, spec, path_to_prototype_clusters, step):
+        mask_bar_height = 15
         # Compute loss and obtain targets and predicted_labels
         _, _, _, targets, predicted_labels, loss_heatmap, softmax_csim = self.loss(self.model, output, label, mask, spec)
         loss_heatmap = loss_heatmap.squeeze().cpu().numpy()  # Assuming loss_heatmap has shape [1, 1000, 1]
 
-        max_possible_loss = 5
-        loss_heatmap_norm = loss_heatmap / max_possible_loss
-        loss_heatmap_norm = np.clip(loss_heatmap_norm, 0, 1)  # Ensure values are within [0, 1]
+        # Process the inputs
+        spec = spec[0].squeeze(1).cpu().numpy()
+        mask_np = mask[:, 0, :].cpu().numpy()
+
+        # Prepare plots
+        fig, axs = plt.subplots(3, 1, figsize=(30, 30))  # 3 rows, 1 column
+        axs = axs.ravel()
+
+        # Labels for X and Y axes
+        x_label = 'Time Bins'
+        y_label = 'Frequency Bins'
+
+        # Adjust spacing between figures, and between titles and figures
+        plt.subplots_adjust(hspace=0.33)  # Adjust vertical space between plots
+
+        for ax in axs:
+            ax.tick_params(axis='both', which='major', labelsize=25, length=6, width=2)  # Adjust tick length and width
+            ax.set_xlabel(x_label, fontsize=25)
+            ax.set_ylabel(y_label, fontsize=25)
+
         softmax_probs = softmax_csim.cpu().numpy()
 
         # Convert targets and predicted_labels to CPU and to numpy arrays if they are tensors
-        targets = targets.cpu().numpy()
-        predicted_labels = predicted_labels.cpu().numpy()
-
+        targets = targets[0].cpu().numpy()
+        predicted_labels = predicted_labels[0].cpu().numpy()
+            
         # Load prototype clusters
         prototype_clusters = np.load(path_to_prototype_clusters)
 
+        combined_predictions_img = np.tensordot(softmax_probs[0], prototype_clusters, axes=([1],[0]))
+
         # Process targets and predicted labels
         targets_img = np.array([prototype_clusters[label] for label in targets])
-        predicted_labels_img = np.array([prototype_clusters[label] for label in predicted_labels])
 
-        # combined_predictions_img = np.tensordot(softmax_probs[0], prototype_clusters, axes=([1],[0]))
-
-        # Visualize using Matplotlib
-        fig, axs = plt.subplots(2, 2, figsize=(40, 20))
-        axs = axs.ravel()
-
-        # Plot for Spectrogram with Mask Overlay
-        filterSpec = spec[0, 0].cpu().detach().numpy()
-        mask_np = mask[0, 0].cpu().numpy()
-
-        axs[0].imshow(filterSpec, aspect='auto', origin='lower')
-        axs[0].set_title('Spectrogram with Mask Overlay', fontsize=15)
-
-        # Use _add_mask_overlay function
-        self._add_mask_overlay(axs[0], mask_np, filterSpec)
+        axs[0].imshow(spec[0], aspect='auto', origin='lower')
+        axs[0].set_title('Spectrogram with Mask Overlay', fontsize=35, pad=20)
+        self._add_mask_overlay(axs[0], mask_np[0], spec, mask_bar_height)
 
         # Plot for Targets Image
         axs[1].imshow(targets_img.T, aspect='auto', origin='lower')
-        axs[1].set_title('Targets Image Reconstructed From K-means Centroids', fontsize=15)
+        axs[1].set_title('Targets Image Reconstructed From K-means Centroids', fontsize=35, pad=20)
+        self._add_mask_overlay(axs[1], mask_np[0], targets_img[0], mask_bar_height)
 
         # Plot for Predicted Labels with Absolute Loss Opacity Overlay
-        axs[2].imshow(predicted_labels_img.T, aspect='auto', origin='lower')
-        axs[2].set_title('Predicted Labels Image With Absolute Loss', fontsize=15)
-
-        # Overlay small red bars representing absolute loss
-        loss_bar_height = 5  # Set a fixed height for the loss bars
-        loss_bar_position = 0  # Position at the bottom of the plot
-        for idx, opacity in enumerate(loss_heatmap_norm):
-            axs[2].add_patch(plt.Rectangle((idx, loss_bar_position), 1, loss_bar_height, color='red', alpha=opacity))
-        
-        # # Plot for Combined Predictions Image with Confidence Overlay
-        # axs[3].imshow(combined_predictions_img.T, aspect='auto', origin='lower')
-        # axs[3].set_title('Combined Predictions Image With Confidence', fontsize=15)
-
-        # # Calculate and overlay the confidence line plot with 50% opacity
-        # confidence = softmax_probs[0].max(axis=1) * prototype_clusters.shape[1]  # Rescale confidence
-        # timebins = np.arange(len(confidence))  # Array of timebins
-        # axs[3].plot(timebins, confidence, color='red', linewidth=2, alpha=0.5)  # Set alpha to 0.5 for 50% opacity
+        axs[2].imshow(combined_predictions_img.T, aspect='auto', origin='lower')
+        axs[2].set_title('Predicted Image Reconstructed From K-means Centroids', fontsize=35, pad=20)
+        self._add_mask_overlay(axs[2], mask_np[0], combined_predictions_img[0], mask_bar_height)
 
         plt.savefig(os.path.join(self.predictions_subfolder_path, f'Spectrogram_{step}.png'))
         plt.close(fig)
@@ -243,7 +236,7 @@ class ModelTrainer:
                 axis.add_patch(plt.Rectangle((idx, mask_bar_position), 1, mask_bar_height, 
                                             edgecolor='none', facecolor=color))
 
-    def visualize_masked_predictions(self, step, path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/closest_spec_vectors.npy"):
+    def visualize_masked_predictions(self, step):
         self.model.eval()
         with torch.no_grad():
             # Choose the batch for visualization
@@ -259,7 +252,7 @@ class ModelTrainer:
             output, mask, _, all_outputs = self.model.train_forward(spec)
 
             if self.loss_function == "cross_entropy":
-                self.visualize_cross_entropy(output=output, label=label, mask=mask, spec=spec, path_to_prototype_clusters=path, step=step)
+                self.visualize_cross_entropy(output=output, label=label, mask=mask, spec=spec, path_to_prototype_clusters=self.path_to_prototype_clusters, step=step)
             elif self.loss_function == "mse_loss":
                 self.visualize_mse(output=output, mask=mask, spec=spec, step=step)
 
@@ -308,7 +301,9 @@ class ModelTrainer:
         raw_loss_list = []
         raw_masked_seq_acc_list = []
         raw_unmasked_seq_acc_list = []
-        smoothed_loss_list = []  # If you plan to use it
+        raw_val_loss_list = []
+
+        smoothed_val_loss_list = []  # If you plan to use it
 
         while step < self.max_steps:
             if self.overfit_on_batch and self.fixed_batch:
@@ -328,7 +323,7 @@ class ModelTrainer:
             label = label.to(self.device)
             ground_truth = ground_truth.to(self.device)
 
-            output, mask, masked_spec, all_outputs = self.model.train_forward(spec)
+            output, mask, *rest = self.model.train_forward(spec)
 
             # there can be a variable number of variables returned 
             loss, masked_seq_acc, unmasked_seq_acc, *rest = self.loss(self.model, output, label, mask, spec)
@@ -347,45 +342,53 @@ class ModelTrainer:
             raw_masked_seq_acc_list.append(avg_masked_seq_acc)
             raw_unmasked_seq_acc_list.append(avg_unmasked_seq_acc)
 
-            # Evaluation and logging
+            # Store the raw validation loss after each evaluation
+            raw_val_loss_list.append(val_loss)
+
+            # Evaluate and log metrics
             if step % self.eval_interval == 0 or step == 0:
                 self.visualize_masked_predictions(step)
 
-                # Compute and log the smoothed metrics if enough data points are available
+                # Smoothed metrics computation
                 if len(raw_loss_list) >= self.eval_interval:
+                    # Smooth training metrics
                     smooth_loss = self.moving_average(raw_loss_list, self.eval_interval)
                     smooth_masked_seq_acc = self.moving_average(raw_masked_seq_acc_list, self.eval_interval)
                     smooth_unmasked_seq_acc = self.moving_average(raw_unmasked_seq_acc_list, self.eval_interval)
-                    smoothed_loss_list.append(smooth_loss[-1])  # Storing smoothed values
 
-                    # Logging the smoothed values with validation loss included
+                    # Smooth validation loss
+                    smooth_val_loss = self.moving_average(raw_val_loss_list, self.eval_interval)
+                    smoothed_val_loss_list.append(smooth_val_loss[-1])  # Store smoothed validation loss
+
+                    # Logging with smoothed metrics
                     print(f'Step [{step}/{self.max_steps}], '
                         f'Training Loss: {smooth_loss[-1]:.4e}, '
                         f'Masked Seq Acc: {smooth_masked_seq_acc[-1]:.4f}, '
                         f'Unmasked Seq Acc: {smooth_unmasked_seq_acc[-1]:.4f}, '
-                        f'Validation Loss: {val_loss:.4e}')  # Validation loss is added here
+                        f'Validation Loss: {smooth_val_loss[-1]:.4e}')  # Smoothed validation loss is used here
                 else:
-                    # Logging the raw values if not enough data points for smoothing, including validation loss
+                    # Logging the raw values if not enough data points for smoothing
                     print(f'Step [{step}/{self.max_steps}], '
                         f'Training Loss: {raw_loss_list[-1]:.4e}, '
                         f'Masked Seq Acc: {raw_masked_seq_acc_list[-1]:.4f}, '
                         f'Unmasked Seq Acc: {raw_unmasked_seq_acc_list[-1]:.4f}, '
-                        f'Validation Loss: {val_loss:.4e}')  # Validation loss is added here
-                    
-                current_val_loss = np.mean(self.val_loss_list[-self.trailing_avg_window:])
-                is_best = current_val_loss < best_val_loss
+                        f'Validation Loss: {raw_val_loss_list[-1]:.4e}')  # Raw validation loss is used here
+                
+                # Check for early stopping using smoothed validation loss
+                if len(smoothed_val_loss_list) > 0:
+                    current_smoothed_val_loss = smoothed_val_loss_list[-1]
+                    is_best = current_smoothed_val_loss < best_val_loss
 
-                if is_best:
-                    best_val_loss = current_val_loss
-                    steps_since_improvement = 0
-                else:
-                    steps_since_improvement += 1
+                    if is_best:
+                        best_val_loss = current_smoothed_val_loss
+                        steps_since_improvement = 0
+                    else:
+                        steps_since_improvement += 1
 
-                # Check for early stopping
-                if self.early_stopping and steps_since_improvement >= self.patience:
-                    print(f"Early stopping triggered at step {step}. No improvement for {self.patience} evaluation intervals.")
-                    self.save_model(step)
-                    break  # Exit the training loop
+                    if self.early_stopping and steps_since_improvement >= self.patience:
+                        print(f"Early stopping triggered at step {step}. No improvement for {self.patience} evaluation intervals.")
+                        self.save_model(step)
+                        break  # Exit the training loop
 
             # Update validation lists with the latest validation metrics
             self.val_masked_sequence_accuracy_list.append(avg_masked_seq_acc)

@@ -87,6 +87,10 @@ class ExperimentRunner:
         if not os.path.exists(experiment_dir):
             os.makedirs(experiment_dir)
 
+        # just to make sure if not provided, it is set to None (MSE experiments)
+        if 'path_to_prototype_clusters' not in config:
+            config['path_to_prototype_clusters'] = None 
+
         # Initialize trainer
         trainer = ModelTrainer(
             model, 
@@ -103,7 +107,8 @@ class ExperimentRunner:
             loss_function = config['loss_function'],
             early_stopping=config['early_stopping'],
             patience=config['patience'],
-            trailing_avg_window=config['trailing_avg_window']
+            trailing_avg_window=config['trailing_avg_window'],
+            path_to_prototype_clusters = config['path_to_prototype_clusters']
         )        
 
         # Train the model

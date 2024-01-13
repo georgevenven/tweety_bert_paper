@@ -42,7 +42,6 @@ class CustomMultiHeadAttention(nn.Module):
         K_split = self.split_heads(K, batch_size)
         V_split = self.split_heads(V, batch_size)
 
-
         # code from  https://jaketae.github.io/study/relative-positional-encoding/
         if self.pos_enc_type == "relative":
             seq_len = Q.size(1)
@@ -126,8 +125,9 @@ class CustomEncoderBlock(nn.Module):
 def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     matmul_qk = torch.matmul(Q, K.transpose(-2, -1))
 
-    # Add relative positional encodings
-    matmul_qk += pos_encodings
+    # only add if pos enc is relative 
+    if isinstance(pos_encodings, torch.Tensor) and isinstance(matmul_qk, torch.Tensor):
+        matmul_qk += pos_encodings
 
     d_k = Q.size(-1)
     scaled_attention_logits = matmul_qk / math.sqrt(d_k)
@@ -193,7 +193,7 @@ class TweetyBERT(nn.Module):
         layer_output_pairs = []
 
         # Create a dummy input for a complete forward pass
-        dummy_x = torch.randn(1, self.d_transformer, 1)
+        dummy_x = torch.randn(1, 1, self.d_transformer)
         # Extract the transformer forward outputs
         _, all_outputs = self.transformer_forward(dummy_x)
 
