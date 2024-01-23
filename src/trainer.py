@@ -9,7 +9,7 @@ class ModelTrainer:
     def __init__(self, model, train_loader, test_loader, optimizer, device, 
              max_steps=10000, eval_interval=500, save_interval=1000, 
              weights_save_dir='saved_weights', 
-             save_weights=True, overfit_on_batch=False, l1_lambda=0.01, experiment_dir=None, loss_function=None, early_stopping=True, patience=8, trailing_avg_window=1000, path_to_prototype_clusters=None):
+             save_weights=True, overfit_on_batch=False, experiment_dir=None, loss_function=None, early_stopping=True, patience=8, trailing_avg_window=1000, path_to_prototype_clusters=None):
 
         self.overfit_on_batch = overfit_on_batch
         self.fixed_batch = None  # Will hold the batch data when overfitting
@@ -21,7 +21,6 @@ class ModelTrainer:
         self.max_steps = max_steps
         self.eval_interval = eval_interval
         self.scheduler = StepLR(optimizer, step_size=10000, gamma=1)
-        self.l1_lambda = l1_lambda  # L0 regularization weight
         self.early_stopping = early_stopping
         self.patience = patience 
         self.trailing_avg_window = trailing_avg_window  # Window size for trailing average calculation
@@ -60,11 +59,7 @@ class ModelTrainer:
     def sum_squared_weights(self):
         sum_of_squares = sum(torch.sum(p ** 2) for p in self.model.parameters())
         return sum_of_squares   
-    
-    def l1_norm(self):
-        l1 = sum(torch.sum(torch.abs(p)).float() for p in self.model.parameters())
-        return l1
-    
+ 
     def save_model(self, step):
         if self.save_weights:
             filename = f"model_step_{step}.pth"

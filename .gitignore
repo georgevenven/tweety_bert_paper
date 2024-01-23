@@ -2,6 +2,7 @@ imgs
 files
 experiments
 *.pyc
+*.png
 /train
 /test
 temp

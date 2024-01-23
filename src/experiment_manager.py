@@ -63,7 +63,6 @@ class ExperimentRunner:
             nhead_transformer=config['nhead_transformer'],
             embedding_dim=config['embedding_dim'],
             num_labels=config['num_clusters'],
-            tau=config['tau'],
             dropout=config['dropout'],
             dim_feedforward=config['dim_feedforward'],
             transformer_layers=config['transformer_layers'],

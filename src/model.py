@@ -140,8 +140,6 @@ def scaled_dot_product_attention(Q, K, V, pos_encodings, mask=None):
     output = torch.matmul(attention_weights, V)
     return output, attention_weights
 
-
-    
 class PositionalEncoding(torch.nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -160,11 +158,9 @@ class PositionalEncoding(torch.nn.Module):
         # Output shape will be same as x: (batch_size, sequence_length, d_model)
         return x + self.pe[:, :x.size(1), :]
 
-
 class TweetyBERT(nn.Module):
-    def __init__(self, d_transformer, nhead_transformer, embedding_dim, num_labels, tau=0.1, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
+    def __init__(self, d_transformer, nhead_transformer, embedding_dim, num_labels, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
         super(TweetyBERT, self).__init__()
-        self.tau = tau
         self.num_labels = num_labels
         self.dropout = dropout
         self.m = m
@@ -326,7 +322,9 @@ class TweetyBERT(nn.Module):
     def inference_forward(self, spec):
         x = spec.clone()
 
-        x = self.feature_extractor_forward(x)
+        x= self.feature_extractor_forward(x)
+        feature_extractor = x 
+        
         x = x.permute(0,2,1)
         x = self.transformerProjection(x)
         
@@ -345,7 +343,7 @@ class TweetyBERT(nn.Module):
 
         x, all_outputs = self.transformer_forward(x)
         x = self.transformerDeProjection(x)
-        return x, all_outputs
+        return x, all_outputs, feature_extractor
 
     def cross_entropy_loss(self, predictions, targets, mask):
         epsilon = 1e-6
@@ -360,7 +358,7 @@ class TweetyBERT(nn.Module):
         csim /= (predictions.norm(dim=-1, keepdim=True) * all_labels.norm(dim=-1, keepdim=True).T)
 
         # Scale the logits by the temperature
-        scaled_csim = csim / self.tau
+        scaled_csim = csim
 
         softmax_csim = F.softmax(scaled_csim, dim=-1)  # use scaled cosine similarity
 
