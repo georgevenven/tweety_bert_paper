@@ -19,15 +19,15 @@ class Config:
         self.test_dir = test_dir
         self.n_clusters = n_clusters
 
-# Load configurations from a file or define them in a list
-configs = [
-    Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_50", "files/llb3_test_50", 50),
-    Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_500", "files/llb3_test_500", 500),
-    Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_50", "files/llb11_test_50", 50),
-    Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_500", "files/llb11_test_500", 500),
-    Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_50", "files/llb16_test_50", 50),
-    Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_500", "files/llb16_test_500", 500)
-]
+# # Load configurations from a file or define them in a list
+# configs = [
+#     Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_50", "files/llb3_test_50", 50),
+#     Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_500", "files/llb3_test_500", 500),
+#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_50", "files/llb11_test_50", 50),
+#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_500", "files/llb11_test_500", 500),
+#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_50", "files/llb16_test_50", 50),
+#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_500", "files/llb16_test_500", 500)
+# ]
         
 # Load configurations from a file or define them in a list
 # configs = [
@@ -35,6 +35,12 @@ configs = [
 #     # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
 #     # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
 # ]
+        
+configs = [
+    # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train", test_dir="files/llb3_test", n_clusters=50),
+    # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
+    # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
+]
 
 # Iterate over the configurations and process
 for config in configs:
@@ -45,6 +51,6 @@ for config in configs:
 
     processor.generate_train_test()
     processor.generate_embedding(samples=6000)
-    closest_features_path = "files/centroid_vectors_" + str(config.n_clusters) + ".npy"
+    closest_features_path = f"files/{config.data_root.split('/')[-1]}_centroid_vectors_{str(config.n_clusters)}.npy"
     processor.find_closest_features_to_centroids(save_path=closest_features_path)
     processor.generate_train_test_labels()
