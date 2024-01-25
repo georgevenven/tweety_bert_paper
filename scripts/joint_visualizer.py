@@ -376,11 +376,6 @@ class DataPlotter(QWidget):
         # self.embPlot.setXRange(np.min(self.emb[:,0]) - 1, np.max(self.emb[:,0] + 1), padding=0)
         # self.embPlot.setYRange(np.min(self.emb[:,1]) - 1, np.max(self.emb[:,1] + 1), padding=0)
 
-
-
-
-
-
     def show(self):
         self.win.show()
         self.app.exec_()

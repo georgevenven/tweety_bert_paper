@@ -115,9 +115,9 @@ class CustomEncoderBlock(nn.Module):
             'V': attn_result['V'],
             'attention_output': attn_output,
             'intermediate_residual_stream': x,
-            'feed_forward_output_relu': ff_output_relu,
-            'feed_forward_output': ff_output,
-            'attention_graph': attention_graph
+            # 'feed_forward_output_relu': ff_output_relu,
+            'feed_forward_output': ff_output
+            # 'attention_graph': attention_graph
         }
 
         return output_dict
@@ -185,11 +185,16 @@ class TweetyBERT(nn.Module):
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 
+        self.device = "cuda:0"
+        self.to(self.device)
+
     def get_layer_output_pairs(self):
         layer_output_pairs = []
 
         # Create a dummy input for a complete forward pass
-        dummy_x = torch.randn(1, 1, self.d_transformer)
+        ## temp fix 
+        dummy_x = torch.randn(1, 1, self.d_transformer, device=self.device)
+
         # Extract the transformer forward outputs
         _, all_outputs = self.transformer_forward(dummy_x)
 
