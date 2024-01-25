@@ -31,26 +31,36 @@ def calculate_relative_position_labels(ground_truth_labels, silence=0):
         relative_position_labels (List[float]): List of float values between 0-1 representing the position of the timebin within each phrase.
     """
 
-    # Convert list to numpy array for vectorized operations
     labels_array = np.array(ground_truth_labels)
-
-    # Split the labels into phrases separated by silence
-    # Find indices where syllables are not silence
-    non_silence_indices = np.where(labels_array != silence)[0]
-
-    # Initialize an array to store relative positions
     relative_positions = np.zeros_like(labels_array, dtype=float)
 
-    # Find start and end indices of each phrase
-    if len(non_silence_indices) > 0:
-        phrase_starts = np.concatenate(([non_silence_indices[0]], non_silence_indices[:-1][np.diff(non_silence_indices) > 1]))
-        phrase_ends = np.concatenate((non_silence_indices[:-1][np.diff(non_silence_indices) > 1], [non_silence_indices[-1]]))
+    # get first syllable that is not a silence
+    current_syllable = labels_array[np.where(labels_array != 0)]
+    current_syllable = current_syllable[0]
 
-        # Process each phrase
-        for start, end in zip(phrase_starts, phrase_ends):
-            phrase_length = end - start + 1
-            relative_positions[start:end+1] = np.arange(1, phrase_length + 1) / phrase_length
+    start_of_phrase_index = 0 
+    end_of_phrase_index = 0 
+    phrases = []
 
+    for i, value in enumerate(labels_array):
+        # Check if it's the end of the array or the next element is silence
+        if i < (len(labels_array)-1):
+            if labels_array[i+1] != silence and labels_array[i+1] != current_syllable:
+                # Phrase ends
+                end_of_phrase_index = i
+                # Calculate phrase size
+                phrase_size = end_of_phrase_index - start_of_phrase_index + 1
+                # Create a numpy array with uniformly increasing floats between 0 and 1
+                phrase_array = np.linspace(0, 1, phrase_size)
+                phrases.append(phrase_array)
+                # Update start_of_phrase_index for the next phrase
+                start_of_phrase_index = i + 1
+                current_syllable = labels_array[i+1]
+                
+
+    phrases = np.concatenate(phrases)
+    relative_positions[:phrases.shape[0]] = phrases
+    
     return relative_positions.tolist()
 
 
@@ -71,8 +81,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=False)
     data_loader_iter = iter(data_loader)
 
-    while len(predictions_arr) < samples:
-
+    while len(predictions_arr * context) < samples:
         # Because of the random windows being drawn from songs, it makes sense to reinit dataloader for UMAP plots 
         try:
             # Retrieve the next batch
@@ -138,6 +147,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             ground_truth_label = ground_truth_label.flatten(0,1)
             ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
             
+        
         predictions_arr.append(predictions.detach().cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
         
@@ -148,7 +158,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     
     predictions = np.concatenate(predictions_arr, axis=0)
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
-    
+   
     # dims is 1 if no windowing is utilized
     _, dims = ground_truth_labels.shape
     
@@ -194,40 +204,37 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         Z = svm_model.predict(np.c_[xx.ravel(), yy.ravel()])
         Z = Z.reshape(xx.shape)
 
-        # Create the plot
-        contour = plt.contourf(xx, yy, Z, alpha=0.25, levels=np.linspace(Z.min(), Z.max(), 100), cmap=cmap, antialiased=True)
-        # possibly replace c= with lamda function 
-        plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, edgecolors='k', alpha=1)
+        # Create the plot using scaled embeddings
+        plt.scatter(embedding_scaled[:, 0], embedding_scaled[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, edgecolors='k', alpha=1)
+        plt.contourf(xx, yy, Z, alpha=0.25, levels=np.linspace(Z.min(), Z.max(), 100), cmap=cmap, antialiased=True)
 
+        plt.xlabel('UMAP 1st Component (scaled)')
+        plt.ylabel('UMAP 2nd Component (scaled)')
+        plt.xlim(xx.min(), xx.max())
+        plt.ylim(yy.min(), yy.max())
+        plt.xticks(())
+        plt.yticks(())
+        plt.tight_layout()
 
-    # # Plot with color scheme "Time"
-    # if color_scheme == "Time":
-    #     fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+    # Plot with color scheme "Time"
+    if color_scheme == "Time":
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
-    #     relative_labels = calculate_relative_position_labels(ground_truth_labels)
-    #     axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=relative_labels, s=10, alpha=.1)
-    #     axes[0].set_title("Time-based Coloring")
+        relative_labels = calculate_relative_position_labels(ground_truth_labels)
+        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=relative_labels, s=10, alpha=.1)
+        axes[0].set_title("Time-based Coloring")
 
-    #     # Plot with the original color scheme
-    #     axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
-    #     axes[1].set_title("Original Coloring")
+        # Plot with the original color scheme
+        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
+        axes[1].set_title("Original Coloring")
 
-    # else:
-    plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1) 
+    else:
+        plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=1) 
 
     if raw_spectogram:
         plt.title(f'UMAP of Spectogram', fontsize=14)
     else:
         plt.title(f'UMAP Projection of (Layer: {layer_index}, Key: {dict_key})', fontsize=14)
-
-    plt.xlabel('UMAP 1st Component')
-    plt.ylabel('UMAP 2nd Component')
-    
-    # plt.xlim(xx.min(), xx.max())
-    # plt.ylim(yy.min(), yy.max())
-    # plt.xticks(())
-    # plt.yticks(())
-    plt.tight_layout()
 
     # Save the plot if save_dir is specified
     if save_dir:
@@ -248,7 +255,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         embStartEnd = np.stack((emb_start, emb_end), axis=0)
         print(f"embstartend {embStartEnd.shape}")
 
-        colors_for_points = np.array(colors_for_points)
+        colors_for_points = np.array([label_to_color[lbl] for lbl in ground_truth_labels])
         print(f"mean_colors_per_minispec {colors_for_points.shape}")
 
         colors_per_timepoint = []

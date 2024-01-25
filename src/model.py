@@ -115,7 +115,7 @@ class CustomEncoderBlock(nn.Module):
             'V': attn_result['V'],
             'attention_output': attn_output,
             'intermediate_residual_stream': x,
-            # 'feed_forward_output_relu': ff_output_relu,
+            'feed_forward_output_relu': ff_output_relu,
             'feed_forward_output': ff_output
             # 'attention_graph': attention_graph
         }
