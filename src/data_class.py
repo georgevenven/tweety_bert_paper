@@ -16,57 +16,63 @@ class SongDataSet_Image(Dataset):
             self.file_path.append(os.path.join(file_dir, file))
 
     def __getitem__(self, index):
-        file_path = self.file_path[index]
+        try:
+            file_path = self.file_path[index]
 
-        data = np.load(file_path, allow_pickle=True)
-        spectogram = data['s']
+            data = np.load(file_path, allow_pickle=True)
+            spectogram = data['s']
 
-        ground_truth_labels = data['labels']
+            ground_truth_labels = data['labels']
 
-        # for the cases when this dataclass is used on datasets that have not had psuedo labels generated for them
-        # such an example may be in the eval process 
-        if self.psuedo_labels_generated == True:
-            psuedo_labels = data['new_labels']
-        else:
-            psuedo_labels = data['labels']
-            # this is sloppy, but essentially the psuedo label generation process also crop the freq dim
-            # so I have to do it here if the psuedo label generation process has not occured yet 
+            # for the cases when this dataclass is used on datasets that have not had psuedo labels generated for them
+            # such an example may be in the eval process 
+            if self.psuedo_labels_generated == True:
+                psuedo_labels = data['new_labels']
+            else:
+                psuedo_labels = data['labels']
+                # this is sloppy, but essentially the psuedo label generation process also crop the freq dim
+                # so I have to do it here if the psuedo label generation process has not occurred yet 
+                
+                # Z-score normalization, because this also done in psuedo label generation process 
+                mean_val = spectogram.mean()
+                std_val = spectogram.std()
+                spectogram = (spectogram - mean_val) / (std_val + 1e-7)  # Adding a small constant to prevent division by zero
+                # Replace NaN values with zeros
+                spectogram[np.isnan(spectogram)] = 0
+                spectogram = spectogram[20:216, :]
 
-            # # Z-score normalization, because this also done in psuedo label generation process 
-            # mean_val = spectogram.mean()
-            # std_val = spectogram.std()
-            # spectogram = (spectogram - mean_val) / (std_val + 1e-7)  # Adding a small constant to prevent division by zero
-            # # Replace NaN values with zeros
-            # spectogram[np.isnan(spectogram)] = 0
-            # spectogram = spectogram[20:216,:]
+            max_indices = np.argmax(spectogram, axis=0, keepdims=True)
+            max_indices = torch.tensor(max_indices, dtype=torch.int64).squeeze(0)
 
+            # ground truth and psuedo labels are just length vector 
+            ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
+            psuedo_labels = torch.tensor(psuedo_labels, dtype=torch.int64).squeeze(0)
 
-        max_indices = np.argmax(spectogram, axis=0, keepdims=True)
-        max_indices = torch.tensor(max_indices, dtype=torch.int64).squeeze(0)
+            # bring spectogram to length, height 
+            spectogram = torch.from_numpy(spectogram).float()
+            spectogram = spectogram.permute(1, 0)
 
-        # ground truth and psuedo labels is just length vector 
-        ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
-        psuedo_labels = torch.tensor(psuedo_labels, dtype=torch.int64).squeeze(0)
+            if self.remove_silences == True:
+                # find where not equal to 0 
+                not_silent_indexes = torch.where(max_indices != 0) 
+                # untuple 
+                not_silent_indexes = not_silent_indexes[0]
+                # keep only those indexes 
+                spectogram = spectogram[not_silent_indexes]
+                psuedo_labels = psuedo_labels[not_silent_indexes]
+                ground_truth_labels = ground_truth_labels[not_silent_indexes]
 
-        # bring spectogram to length, height 
-        spectogram = torch.from_numpy(spectogram).float()
-        spectogram = spectogram.permute(1,0)
+            # Convert label and psuedo label to one-hot encoding
+            ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
+            psuedo_labels = F.one_hot(psuedo_labels, num_classes=self.num_classes).float()
 
-        if self.remove_silences == True:
-            # find where not equal to 0 
-            not_silent_indexes = torch.where(max_indices != 0) 
-            # untuple 
-            not_silent_indexes = not_silent_indexes[0]
-            # keep only those indexes 
-            spectogram = spectogram[not_silent_indexes]
-            psuedo_labels = psuedo_labels[not_silent_indexes]
-            ground_truth_labels = ground_truth_labels[not_silent_indexes]
+            return spectogram, psuedo_labels, ground_truth_labels
 
-        # Convert label and psuedo label to one-hot encoding
-        ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
-        psuedo_labels = F.one_hot(psuedo_labels, num_classes=self.num_classes).float()
+        except Exception as e:
+            # Handle the BadZipFile exception or any other exception that may occur during data loading
+            print(f"Error loading data at index {index}: {e}")
+            return None  # You can decide how to handle the error, such as returning None or raising a custom exception
 
-        return spectogram, psuedo_labels, ground_truth_labels
 
     def __len__(self):
         return len(self.file_path)
