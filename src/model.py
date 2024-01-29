@@ -328,7 +328,6 @@ class TweetyBERT(nn.Module):
         x = spec.clone()
 
         x= self.feature_extractor_forward(x)
-        feature_extractor = x 
         
         x = x.permute(0,2,1)
         x = self.transformerProjection(x)
@@ -348,7 +347,7 @@ class TweetyBERT(nn.Module):
 
         x, all_outputs = self.transformer_forward(x)
         x = self.transformerDeProjection(x)
-        return x, all_outputs, feature_extractor
+        return x, all_outputs
 
     def cross_entropy_loss(self, predictions, targets, mask):
         epsilon = 1e-6

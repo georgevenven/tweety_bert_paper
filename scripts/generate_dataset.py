@@ -37,7 +37,7 @@ class Config:
 # ]
         
 configs = [
-    # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train", test_dir="files/llb3_test", n_clusters=50),
+    Config(data_root="/home/george-vengrovski/Documents/data/pretrain_song_detector_specs", train_dir="files/songdetector_train", test_dir="files/songdetector_test", n_clusters=1),
     # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
     # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
 ]
@@ -50,7 +50,7 @@ for config in configs:
     processor.clear_directory(config.test_dir)
 
     processor.generate_train_test()
-    processor.generate_embedding(samples=6000)
+    processor.generate_embedding(samples=100)
     closest_features_path = f"files/{config.data_root.split('/')[-1]}_centroid_vectors_{str(config.n_clusters)}.npy"
     processor.find_closest_features_to_centroids(save_path=closest_features_path)
     processor.generate_train_test_labels()

@@ -1,16 +1,15 @@
-import os
 import pickle
 import umap
 import numpy as np
-from scipy.stats import mode
 import matplotlib.pyplot as plt
 import torch
 from data_class import SongDataSet_Image, CollateFunction
 from torch.utils.data import DataLoader
-from sklearn.decomposition import PCA
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 import matplotlib.colors as mcolors
+from sklearn.cluster import HDBSCAN
+from sklearn.preprocessing import StandardScaler
 
 
 def load_data( data_dir,remove_silences=False, context=1000, psuedo_labels_generated=False):
@@ -19,50 +18,94 @@ def load_data( data_dir,remove_silences=False, context=1000, psuedo_labels_gener
     loader = DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=collate_fn, num_workers=16)
     return loader 
 
-def calculate_relative_position_labels(ground_truth_labels, silence=0):
+def plot_spectrogram_with_labels(spectrogram, labels):
     """
-    Creates a new list, which labels each timebin's relative position within each phrase.
+    Plots a spectrogram with a corresponding line plot overlay representing label values between 0 and 1.
 
     Args:
-        ground_truth_labels (List[int]): The list of integer values representing timebin syllable labels.
-        silence (int): The label representing silence, used to separate phrases.
-
-    Returns:
-        relative_position_labels (List[float]): List of float values between 0-1 representing the position of the timebin within each phrase.
+        spectrogram (np.array): 2D array representing the spectrogram, shape (time_bins, frequencies).
+        labels (List[float]): List of label values for each timebin in the spectrogram, ranging from 0 to 1.
     """
 
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(10, 4))
+
+    # Plot the spectrogram
+    cax = ax.imshow(spectrogram, aspect='auto', origin='lower')
+
+    # Create time points for x-axis of the line plot
+    time_points = np.arange(len(labels))
+
+    # Overlay the line plot on the spectrogram
+    # Note: Adjust the line plot's y-values to match the spectrogram's y-axis
+    ax.plot(time_points, labels * spectrogram.shape[0], color='cyan', linewidth=2)
+
+    # Add colorbar for the spectrogram
+    fig.colorbar(cax, ax=ax, orientation='vertical')
+
+    plt.show()
+
+from sklearn.cluster import OPTICS
+import numpy as np
+
+def generate_optics_labels(array, min_samples=10):
+    """
+    Applies OPTICS clustering to an array of data points and returns the cluster labels.
+
+    Args:
+        array (numpy.ndarray): An n x features array of data points.
+        min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
+
+    Returns:
+        numpy.ndarray: An n x 1 array of cluster labels for each data point.
+    """
+
+    # Initialize the OPTICS clusterer
+    clusterer = OPTICS(min_samples=min_samples, min_cluster_size=250, cluster_method="xi", metric='euclidean')
+
+    # Fit the model to the data and predict cluster labels
+    labels = clusterer.fit_predict(array)
+
+    # Reshape labels to n x 1
+    labels = labels.reshape(-1, 1)
+
+    print(np.unique(labels))
+
+    return labels
+
+def calculate_relative_position_labels(ground_truth_labels, silence=0):
     labels_array = np.array(ground_truth_labels)
     relative_positions = np.zeros_like(labels_array, dtype=float)
 
-    # get first syllable that is not a silence
-    current_syllable = labels_array[np.where(labels_array != 0)]
-    current_syllable = current_syllable[0]
+    start_idx = None
+    current_label = None
 
-    start_of_phrase_index = 0 
-    end_of_phrase_index = 0 
-    phrases = []
+    for i, label in enumerate(labels_array):
+        # Check if it's the last element to prevent out-of-bounds access
+        is_last_element = i == len(labels_array) - 1
 
-    for i, value in enumerate(labels_array):
-        # Check if it's the end of the array or the next element is silence
-        if i < (len(labels_array)-1):
-            if labels_array[i+1] != silence and labels_array[i+1] != current_syllable:
-                # Phrase ends
-                end_of_phrase_index = i
-                # Calculate phrase size
-                phrase_size = end_of_phrase_index - start_of_phrase_index + 1
-                # Create a numpy array with uniformly increasing floats between 0 and 1
-                phrase_array = np.linspace(0, 1, phrase_size)
-                phrases.append(phrase_array)
-                # Update start_of_phrase_index for the next phrase
-                start_of_phrase_index = i + 1
-                current_syllable = labels_array[i+1]
-                
+        if label != silence:
+            if start_idx is None:
+                start_idx = i
+                current_label = label
+            elif label != current_label:
+                phrase_length = i - start_idx
+                relative_positions[start_idx:i] = np.linspace(0, 1, phrase_length)
+                start_idx = i
+                current_label = label
+        elif not is_last_element and (labels_array[i + 1] != silence and labels_array[i + 1] != current_label):
+            if start_idx is not None:
+                end_idx = i if labels_array[i + 1] != current_label else i + 1
+                phrase_length = end_idx - start_idx
+                relative_positions[start_idx:end_idx] = np.linspace(0, 1, phrase_length)
+                start_idx = None
 
-    phrases = np.concatenate(phrases)
-    relative_positions[:phrases.shape[0]] = phrases
-    
+    # Handle the case where the last label is part of an ongoing phrase
+    if start_idx is not None:
+        phrase_length = len(labels_array) - start_idx
+        relative_positions[start_idx:] = np.linspace(0, 1, phrase_length)
+
     return relative_positions.tolist()
-
 
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
@@ -81,7 +124,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=False)
     data_loader_iter = iter(data_loader)
 
-    while len(predictions_arr * context) < samples:
+    while len(ground_truth_labels_arr * context) < samples:
         # Because of the random windows being drawn from songs, it makes sense to reinit dataloader for UMAP plots 
         try:
             # Retrieve the next batch
@@ -93,20 +136,14 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             data, _, ground_truth_label = next(data_loader_iter)
 
         if raw_spectogram == False:
-            embedding_output, layers, feature_extractor = model.inference_forward(data.to(device))
+            embedding_output, layers = model.inference_forward(data.to(device))
 
-            if dict_key == "conv":
-                print(feature_extractor.shape)
-                output = feature_extractor.permute(0,2,1)
-            elif dict_key == "embedding_output":
-                pass
-            else:
-                layer_output_dict = layers[layer_index]
-                output = layer_output_dict.get(dict_key, None)
+            layer_output_dict = layers[layer_index]
+            output = layer_output_dict.get(dict_key, None)
 
-                if output is None:
-                    print(f"Invalid key: {dict_key}. Skipping this batch.")
-                    continue
+            if output is None:
+                print(f"Invalid key: {dict_key}. Skipping this batch.")
+                continue
 
             # number of times the spectogram must be broken apart 
             num_times = context // time_bins_per_umap_point
@@ -119,36 +156,21 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             predictions = predictions.flatten(0,1)
             # combine features and time bins
             predictions = predictions.flatten(-2,-1)
-            
-            # reshape the labels just like the neural activations (last one is different size from features and is of size of one hot encoding)
-            ground_truth_label = ground_truth_label.reshape(batches, num_times, time_bins_per_umap_point, -1)
-            ground_truth_label = ground_truth_label.flatten(0,1)
-            ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
+            predictions_arr.append(predictions.detach().cpu().numpy())
 
-        else:
-            # number of times the spectogram must be broken apart 
-            num_times = context // time_bins_per_umap_point
+        data = data.squeeze(1)
+        spec = data
 
-            data = data.squeeze(1)
-           
-            batches, features, timebins = data.shape 
+        # set the features (freq axis to be the last dimension)
+        spec = spec.permute(0, 2, 1)
+        # combine batches and timebins
+        spec = spec.flatten(0, 1)
 
-            # data shape [0] is the number of batches, 
-            predictions = data.reshape(batches, features, num_times, time_bins_per_umap_point)
-   
-            # combine the batches and number of samples per context window 
-            predictions = predictions.flatten(0,1)
-            
-            # combine features and time bins
-            predictions = predictions.flatten(-2,-1)
+        ground_truth_label = ground_truth_label.flatten(0, 1)
 
-            # reshape the labels just like the neural activations (last one is different size from features and is of size of one hot encoding)
-            ground_truth_label = ground_truth_label.reshape(batches, num_times, time_bins_per_umap_point, -1)
-            ground_truth_label = ground_truth_label.flatten(0,1)
-            ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
-            
-        
-        predictions_arr.append(predictions.detach().cpu().numpy())
+        ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
+
+        spec_arr.append(spec.cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
         
     with open(file_path, 'rb') as file:
@@ -156,15 +178,13 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     label_to_color = {label: tuple(color) for label, color in color_map_data.items()}
     
-    predictions = np.concatenate(predictions_arr, axis=0)
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
-   
-    # dims is 1 if no windowing is utilized
-    _, dims = ground_truth_labels.shape
-    
-    if dims != 1:
-        ground_truth_labels, _ = mode(ground_truth_labels, axis=1)
-    ground_truth_labels = ground_truth_labels.flatten()
+    spec_arr = np.concatenate(spec_arr, axis=0)
+
+    if not raw_spectogram:
+        predictions = np.concatenate(predictions_arr, axis=0)
+    else:
+        predictions = spec_arr
 
     # razor off any extra datapoints 
     if samples > len(predictions):
@@ -173,9 +193,11 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         predictions = predictions[:samples]
         ground_truth_labels = ground_truth_labels[:samples]
         
-    # Fit the UMAP reducer
-    reducer = umap.UMAP(random_state=42, n_neighbors=15, min_dist=0.05, n_components=2, metric='cosine')
+    # Fit the UMAP reducer       
+    reducer = umap.UMAP(n_neighbors=15, min_dist=0.05, n_components=2, metric='cosine')
+
     embedding_outputs = reducer.fit_transform(predictions)
+    # hdbscan_labels = generate_optics_labels(predictions)
 
     if remove_silences == True:
         index_where_silence = np.where(ground_truth_labels != 0) 
@@ -221,6 +243,9 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
         relative_labels = calculate_relative_position_labels(ground_truth_labels)
+        relative_labels = np.array(relative_labels)
+        plot_spectrogram_with_labels(spec_arr.T, relative_labels)
+
         axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=relative_labels, s=10, alpha=.1)
         axes[0].set_title("Time-based Coloring")
 
@@ -229,7 +254,20 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         axes[1].set_title("Original Coloring")
 
     else:
-        plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=1) 
+        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
+        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
+        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
+
+
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+
+        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1)
+        axes[0].set_title("HDBSCAN")
+
+        # Plot with the original color scheme
+        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
+        axes[1].set_title("Original Coloring")
 
     if raw_spectogram:
         plt.title(f'UMAP of Spectogram', fontsize=14)
@@ -281,3 +319,31 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
                             behavioralArr=behavioralArr, 
                             mean_colors_per_minispec=mean_colors_per_minispec, 
                             colors_per_timepoint=colors_per_timepoint)
+        
+def similarity_of_vectors(model, device, data_dir="test_llb16",
+                         remove_silences=False, samples=100, file_path='category_colors.pkl', 
+                         layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
+                         context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
+    predictions_arr = []
+    ground_truth_labels_arr = []
+    spec_arr = [] 
+
+    # Reset Figure
+    plt.figure(figsize=(8, 6))
+
+    # to allow sci notation 
+    samples = int(samples)
+
+    data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=False)
+    data_loader_iter = iter(data_loader)
+
+    while len(ground_truth_labels_arr * context) < samples:
+        # Because of the random windows being drawn from songs, it makes sense to reinit dataloader for UMAP plots 
+        try:
+            # Retrieve the next batch
+            data, _, ground_truth_label = next(data_loader_iter)
+
+        except StopIteration:
+            # Reinitialize the DataLoader iterator when all batches are exhausted
+            data_loader_iter = iter(data_loader)
+            data, _, ground_truth_label = next(data_loader_iter)

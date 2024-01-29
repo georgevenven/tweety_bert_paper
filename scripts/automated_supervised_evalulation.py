@@ -53,8 +53,6 @@ def probe_eval(model, train_loader, test_loader, results_path, folder, config):
     for layer_id, layer_num, nn_dim in tqdm(layer_output_pairs, desc=f"Probing Layers in {folder}", leave=False, unit="layer"):
         print(f"Evaluating for layer: {layer_id}, number: {layer_num}")
 
-     
-
         # Instantiate the classifier for the current layer
         classifier_model = LinearProbeModel(num_classes=21, model_type="neural_net",
                                             model=model, freeze_layers=True,
