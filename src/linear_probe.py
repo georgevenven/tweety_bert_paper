@@ -120,7 +120,7 @@ class LinearProbeTrainer():
         num_val_batches = 0
 
         with torch.no_grad():
-            for i, (spectrogram, label, _) in enumerate(self.test_loader):
+            for i, (spectrogram, _, label) in enumerate(self.test_loader):
                 if i > self.batches_per_eval:
                     break
                 spectrogram, label = spectrogram.to(self.device), label.to(self.device)
@@ -151,7 +151,7 @@ class LinearProbeTrainer():
         raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list = [], [], []
 
         while total_batches < self.desired_total_batches:
-            for i, (spectrogram, label, _) in enumerate(self.train_loader):
+            for i, (spectrogram, _ , label) in enumerate(self.train_loader):
                 if total_batches >= self.desired_total_batches:
                     break
 
@@ -236,7 +236,7 @@ class ModelEvaluator:
 
         for _ in range(num_passes):
             with torch.no_grad():
-                for i, (waveform, label, _) in enumerate(self.test_loader):
+                for i, (waveform, _, label) in enumerate(self.test_loader):
                     if i >= max_batches:
                         break
 

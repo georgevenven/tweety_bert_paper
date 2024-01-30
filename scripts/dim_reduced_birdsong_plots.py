@@ -9,88 +9,43 @@ sys.path.append("src")
 from utils import load_model, detailed_count_parameters
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+# print(device)
+
+# device = torch.device("cuda")
 
 os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 # Plotting PCA, UMAP, and TweetyBERT plots of birdsong samples 
 
-weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE_LLB3_10_Mask/saved_weights/model_step_15800.pth"
-config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE_LLB3_10_Mask/config.json"
+weights_path = "/home/george-vengrovski/Documents/experiments_backup/TweetyBERT-Combined-MSE-1/saved_weights/model_step_11800.pth"
+config_path = "/home/george-vengrovski/Documents/experiments_backup/TweetyBERT-Combined-MSE-1/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
   
-from analysis import plot_umap_projection
+from analysis import plot_umap_projection, similarity_of_vectors
 
 plot_umap_projection(
 model=model, 
 device=device, 
 data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test",
 remove_silences=False,  # Using new config parameter``
-samples=1e3, 
+samples=5e5, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=2, 
-dict_key="attention_output", 
+dict_key="V", 
 time_bins_per_umap_point=1, 
-context=1000,  # Using new config parameter
-raw_spectogram=True,
+context=1000,  # Using new config parameter98
+raw_spectogram=False,
 save_dict_for_analysis = False,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/hdbscan.png",
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/allbirds_untrained.png",
 compute_svm= False,
-color_scheme = "Time"
+color_scheme = "Label"
 )
 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test",
-# remove_silences=False,  # Using new config parameter``
-# samples=5e4, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-2, 
-# dict_key="V", 
-# time_bins_per_umap_point=1, 
-# context=1000,  # Using new config parameter
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/mse_2.png"
-# )
+# similarity_of_vectors(model, device, data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test",
+#                          remove_silences=False, samples=10, file_path='category_colors_llb3.pkl.pkl', 
+#                          layer_index=1, dict_key="V",
+#                          context=1000, save_dir=None, raw_spectogram=False)
 
-# weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-cluster_LLB3_10_Mask_50_clusters/saved_weights/model_step_8600.pth"
-# config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-cluster_LLB3_10_Mask_50_clusters/config.json"
 
-# model = load_model(config_path, weights_path)
-# model = model.to(device)
-
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test_50",
-# remove_silences=False,  # Using new config parameter``
-# samples=5e4, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-1, 
-# dict_key="V", 
-# time_bins_per_umap_point=1, 
-# context=1000,  # Using new config parameter
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/cluster_1.png"
-# )
-
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test_50",
-# remove_silences=False,  # Using new config parameter``
-# samples=5e4, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-1, 
-# dict_key="V", 
-# time_bins_per_umap_point=1, 
-# context=1000,  # Using new config parameter
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/cluster_2.png"
-# )

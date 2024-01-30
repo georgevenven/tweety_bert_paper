@@ -120,3 +120,98 @@ class CollateFunction:
         spectograms = spectograms.unsqueeze(1).permute(0,1,3,2)
 
         return spectograms, psuedo_labels, ground_truth_labels
+
+class SongDetectorDataClass(Dataset):
+    def __init__(self, file_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=True, max_retries = 100):
+        self.file_paths = []
+        self.num_classes = num_classes
+        self.remove_silences = remove_silences
+        self.pseudo_labels_generated = psuedo_labels_generated
+        self.max_retries = max_retries
+
+
+        for file in os.listdir(file_dir):
+            self.file_paths.append(os.path.join(file_dir, file))
+
+    def __getitem__(self, index):
+        valid_data = False
+        attempts = 0
+
+        while not valid_data and attempts < self.max_retries:
+            try:
+                file_path = self.file_paths[index]
+
+                data = np.load(file_path, allow_pickle=True)
+                spectogram = data['s']
+                ground_truth_labels = data['song']
+
+                # This needs to be done because we are no longer operating on preprocessed data 
+                # Z-score normalization
+                mean_val, std_val = spectogram.mean(), spectogram.std()
+                spectogram = (spectogram - mean_val) / (std_val + 1e-7)
+                spectogram[np.isnan(spectogram)] = 0
+                spectogram = spectogram[20:216, :]
+
+                ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
+                spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
+                ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
+                return spectogram, ground_truth_labels
+
+            except Exception as e:
+                print(f"Error loading data at index {index}: {e}")
+                index = (index + 1) % len(self.file_paths)  # Try the next data point
+                attempts += 1
+
+        if attempts == self.max_retries:
+            raise RuntimeError(f"Failed to fetch a valid data point after {self.max_retries} attempts.")
+
+    def __len__(self):
+        return len(self.file_paths)
+
+class CollateFunctionSongDetection:
+    def __init__(self, segment_length=1000):
+        self.segment_length = segment_length
+
+    def __call__(self, batch):
+        # Unzip the batch (a list of (spectogram, psuedo_labels, ground_truth_labels) tuples)
+        spectograms, ground_truth_labels = zip(*batch)
+
+        # Create lists to hold the processed tensors
+        spectograms_processed = []
+        ground_truth_labels_processed = []
+
+        # Each sample in batch
+        for spectogram, ground_truth_label in zip(spectograms, ground_truth_labels):
+
+            # Truncate if larger than context window
+            if spectogram.shape[0] > self.segment_length:
+                # get random view of size segment
+                # find range of valid starting pts (essentially these are the possible starting pts for the length to equal segment window)
+                starting_points_range = spectogram.shape[0] - self.segment_length        
+                start = torch.randint(0, starting_points_range, (1,)).item()  
+                end = start + self.segment_length     
+
+                spectogram = spectogram[start:end]
+                ground_truth_label = ground_truth_label[start:end]
+
+            # Pad with 0s if shorter
+            if spectogram.shape[0] < self.segment_length:
+                pad_amount = self.segment_length - spectogram.shape[0]
+                spectogram = F.pad(spectogram, (0, 0, 0, pad_amount), 'constant', 0)
+                ground_truth_label = F.pad(ground_truth_label, (0, 0, 0, pad_amount), 'constant', 0)  # Adjusted padding for labels
+
+            # Append the processed tensors to the lists
+            spectograms_processed.append(spectogram)
+            ground_truth_labels_processed.append(ground_truth_label)
+
+        # Stack tensors along a new dimension to match the BERT input size.
+        # You might need to adjust dimensions based on your exact use case.
+        spectograms = torch.stack(spectograms_processed, dim=0)
+        ground_truth_labels = torch.stack(ground_truth_labels_processed, dim=0)
+
+        # Final reshape for model
+        spectograms = spectograms.unsqueeze(1).permute(0,1,3,2)
+
+        # so its compatible with the other code made for the other dataclass
+        return spectograms, ground_truth_labels, ground_truth_labels
+
