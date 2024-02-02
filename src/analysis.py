@@ -9,9 +9,11 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from scipy.spatial import distance
-import hdbscan
+import matplotlib.colors as mcolors
 import os 
 from hmmlearn import hmm
+import colorcet as cc
+import glasbey
 
 def load_data( data_dir, remove_silences=False, context=1000, psuedo_labels_generated=True):
     collate_fn = CollateFunction(context)
@@ -46,32 +48,37 @@ def plot_spectrogram_with_labels(spectrogram, labels):
 
     plt.show()
 
-def generate_hdbscan_labels(array, min_cluster_size=500, min_samples=1):
+def generate_optics_labels(array, min_samples=5, xi=0.05, min_cluster_size=0.1):
     """
-    Applies HDBSCAN clustering to an array of data points and returns the cluster labels.
+    Generate labels for data points using the OPTICS (Ordering Points To Identify the Clustering Structure) clustering algorithm, 
+    with adjusted parameters to reduce the number of points marked as noise.
 
-    Args:
-        array (numpy.ndarray): An n x features array of data points.
-        min_cluster_size (int): The minimum size of clusters; smaller clusters will be considered as noise.
+    Parameters:
+    - array: ndarray of shape (n_samples, n_features)
+      The input data to cluster.
+
+    - min_samples: int, default=10
+      The number of samples in a neighborhood for a point to be considered as a core point.
+
+    - xi: float, between 0 and 1, default=0.05
+      Determines the minimum steepness on the reachability plot that constitutes a cluster boundary.
+
+    - min_cluster_size: float or int, default=0.1
+      The minimum size of a cluster. If it is less than 1, it is interpreted as a fraction of the total number of points.
 
     Returns:
-        numpy.ndarray: An n x 1 array of cluster labels for each data point, where -1 indicates noise points.
+    - labels: ndarray of shape (n_samples)
+      Cluster labels for each point in the dataset. Noisy samples are given the label -1.
     """
 
-    # Initialize the HDBSCAN clusterer
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean', min_samples=min_samples)
+    from sklearn.cluster import OPTICS
 
-    # Fit the model to the data
-    clusterer.fit(array)
+    # Create an OPTICS object with the specified parameters.
+    optics_model = OPTICS(min_samples=min_samples, xi=xi, min_cluster_size=min_cluster_size)
 
-    # Extract the cluster labels
-    labels = clusterer.labels_
-
-    # Optionally, reshape labels to n x 1 if you specifically need this shape
-    labels = labels.reshape(-1, 1)
-
-    # Print the unique labels to see the different clusters and noise
-    print(np.unique(labels))
+    # Fit the model to the data and extract the labels.
+    optics_model.fit(array)
+    labels = optics_model.labels_
 
     return labels
 
@@ -101,7 +108,6 @@ def generate_kmeans_labels(array, n_clusters=10):
 
     return labels
 
-
 def generate_hmm_states(array, n_states=30, context=1000):
     """
     Applies Hidden Markov Model to an array of data points and returns the state labels.
@@ -113,17 +119,40 @@ def generate_hmm_states(array, n_states=30, context=1000):
     Returns:
         numpy.ndarray: An n x 1 array of state labels for each observation.
     """
-    
-    # Initialize the HMM
-    # We'll use a Gaussian HMM here, but you might choose a different type based on your data
-    model = hmm.GaussianHMM(n_components=n_states, covariance_type="diag", n_iter=1000, random_state=0, verbose=True)
 
-    # Fit the model to the data
-    # HMMs require the lengths of the sequences if the dataset contains multiple sequences
-    # We calculate that here 
+    # Initialize the HMM
+    model = hmm.GaussianHMM(n_components=n_states, covariance_type="full",  init_params='')
+
+    # Initialize starting probabilities to be equal
+    model.startprob_ = np.array([1.0 / n_states] * n_states)
+
+    # Initialize the transition matrix with a bias for staying in the same state
+    transition_matrix = np.eye(n_states) * 0.9
+    for i in range(n_states):
+        for j in range(n_states):
+            if i != j:
+                transition_matrix[i, j] = 0.1 / (n_states - 1)
+
+    model.transmat_ = transition_matrix
+
+    # Use K-means clustering to initialize the means
+    kmeans = KMeans(n_clusters=n_states).fit(array)
+    model.means_ = kmeans.cluster_centers_
+
+    # Initialize the covariance matrices based on cluster assignments
+    covars = np.zeros((n_states, array.shape[1], array.shape[1]))
+    for i in range(n_states):
+        cluster_points = array[kmeans.labels_ == i]
+        if len(cluster_points) > 1:  # Ensure there are enough points to calculate covariance
+            covars[i] = np.cov(cluster_points, rowvar=False)
+        else:  # Fallback to identity if cluster has insufficient points
+            covars[i] = np.identity(array.shape[1])
+    model.covars_ = covars
+
+    # Calculate lengths of sequences if the dataset contains multiple sequences
     lengths = [context] * (len(array) // context)
 
-
+    # Fit the model to the data
     model.fit(array, lengths=lengths)
 
     # Predict the hidden states for each observation in the array
@@ -262,7 +291,12 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     embedding_outputs = reducer.fit_transform(predictions)
     # hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    hdbscan_labels = generate_hmm_states(embedding_outputs, context=context)
+    hdbscan_labels = generate_optics_labels(embedding_outputs)
+
+    # hdbscan_labels = generate_hmm_states(embedding_outputs, context=context)
+
+    cmap = glasbey.extend_palette(["#000000"], palette_size=30)
+    cmap = mcolors.ListedColormap(cmap)    
 
     if remove_silences == True:
         index_where_silence = np.where(ground_truth_labels != 0) 
@@ -309,29 +343,25 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
         relative_labels = calculate_relative_position_labels(ground_truth_labels)
         relative_labels = np.array(relative_labels)
-        plot_spectrogram_with_labels(spec_arr.T, relative_labels)
 
         axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=relative_labels, s=10, alpha=.1)
         axes[0].set_title("Time-based Coloring")
 
         # Plot with the original color scheme
-        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
+        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
         axes[1].set_title("Original Coloring")
 
     else:
         # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
         # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
         # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
-
-
-
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
-        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1)
+        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
         axes[0].set_title("HDBSCAN")
 
         # Plot with the original color scheme
-        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
+        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
         axes[1].set_title("Original Coloring")
 
     if raw_spectogram:

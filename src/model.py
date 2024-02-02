@@ -281,10 +281,13 @@ class TweetyBERT(nn.Module):
         x = spec.clone()
         intermediate_outputs["input_spec"] = x.clone()
 
-        x = self.feature_extractor_forward(x)
-        intermediate_outputs["feature_extractor_forward"] = x.clone()
-        x, mask = self.masking_operation(x, p=self.p, m=self.m)
+
+        x, mask = self.masking_operation(x.squeeze(1), p=self.p, m=self.m)
         intermediate_outputs["masking_operation"] = x.clone()
+
+        x = self.feature_extractor_forward(x.unsqueeze(1))
+        intermediate_outputs["feature_extractor_forward"] = x.clone()
+
         x = x.permute(0,2,1)
         x = self.transformerProjection(x)
 
