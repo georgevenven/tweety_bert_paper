@@ -17,11 +17,8 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 # Plotting PCA, UMAP, and TweetyBERT plots of birdsong samples 
 
-# weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/saved_weights/model_step_6400.pth"
-# config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/config.json"
-
-weights_path = "/home/george-vengrovski/Documents/experiments_backup/tweety_bert_paper/experiments/TweetyBERT-Combined-MSE-1/saved_weights/model_step_11800.pth"
-config_path = "/home/george-vengrovski/Documents/experiments_backup/tweety_bert_paper/experiments/TweetyBERT-Combined-MSE-1/config.json"
+weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/saved_weights/model_step_6400.pth"
+config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -35,13 +32,13 @@ data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb
 remove_silences=False,  # Using new config parameter``
 samples=5e4, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=1, 
-dict_key="attention_output", 
+layer_index=0, 
+dict_key="V", 
 time_bins_per_umap_point=1, 
 context=1000,  # Using new config parameter98
 raw_spectogram=False,
-save_dict_for_analysis = False,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/Prev_Model.png",
+save_dict_for_analysis = True,
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/HDBSCAN_5000.png",
 compute_svm= False,
 color_scheme = "Label"
 )
