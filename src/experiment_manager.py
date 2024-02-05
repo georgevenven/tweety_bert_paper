@@ -4,7 +4,7 @@ from data_class import SongDataSet_Image, CollateFunction
 from torch.utils.data import DataLoader
 from model import TweetyBERT
 from trainer import ModelTrainer
-from analysis import plot_umap_projection
+from src.analysis import plot_umap_projection
 from utils import detailed_count_parameters
 import hashlib
 import json

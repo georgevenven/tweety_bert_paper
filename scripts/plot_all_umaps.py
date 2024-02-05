@@ -19,7 +19,7 @@ sys.path.append("src")
 from linear_probe import LinearProbeModel, LinearProbeTrainer,ModelEvaluator
 from utils import load_model, detailed_count_parameters, load_config
 from data_class import SongDataSet_Image, CollateFunction
-from analysis import plot_umap_projection
+from src.analysis import plot_umap_projection
 from data_class import SongDataSet_Image
 
 def load_config_from_path(path):
