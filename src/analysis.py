@@ -15,10 +15,9 @@ from hmmlearn import hmm
 import colorcet as cc
 import glasbey
 
-def load_data( data_dir, remove_silences=False, context=1000, psuedo_labels_generated=True):
-    collate_fn = CollateFunction(context)
+def load_data( data_dir, context=1000, psuedo_labels_generated=True):
     dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=psuedo_labels_generated)
-    loader = DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=collate_fn, num_workers=16)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
 def plot_spectrogram_with_labels(spectrogram, labels):
@@ -127,19 +126,48 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     # to allow sci notation 
     samples = int(samples)
 
-    data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=True)
+    data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
     data_loader_iter = iter(data_loader)
 
-    while len(ground_truth_labels_arr * context) < samples:
-        # Because of the random windows being drawn from songs, it makes sense to reinit dataloader for UMAP plots 
+    while len(ground_truth_labels_arr) * context < samples:
         try:
             # Retrieve the next batch
             data, _, ground_truth_label = next(data_loader_iter)
 
+            # if smaller than context window, go to next song
+            if data.shape[1] < context:
+                continue 
+            # because network is made to work with batched data, we unsqueeze a dim and transpose the last two dims (usually handled by collate fn)
+            data = data.unsqueeze(0).permute(0,1,3,2)
+
+            # calculate the number of times a song 
+            num_times = data.shape[-1] // context
+            
+            # removing left over timebins that do not fit in context window 
+            shave_index = num_times * context
+            data = data[:,:,:,:shave_index]
+
+            batch, channel, freq, time_bins = data.shape 
+
+            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
+            data = data.permute(0,-1, 1, 2)
+            data = data.reshape(num_times, context, channel, freq)
+            data = data.permute(0,2,3,1)
+
+            # reshaping g truth labels to be consistent 
+            batch, time_bins, labels = ground_truth_label.shape
+
+            # shave g truth labels 
+            ground_truth_label = ground_truth_label.permute(0,2,1)
+            ground_truth_label = ground_truth_label[:,:,:shave_index]
+
+            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
+            ground_truth_label = ground_truth_label.permute(0,2,1)
+            ground_truth_label = ground_truth_label.reshape(num_times, context, labels)
+            
         except StopIteration:
-            # Reinitialize the DataLoader iterator when all batches are exhausted
-            data_loader_iter = iter(data_loader)
-            data, _, ground_truth_label = next(data_loader_iter)
+            # if test set is exhausted, print the number of samples collected and stop the collection process
+            print(f"samples collected f{len(ground_truth_labels_arr) * context}")
 
         if raw_spectogram == False:
             embedding_output, layers = model.inference_forward(data.to(device))
@@ -204,12 +232,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    # hdbscan_labels = generate_optics_labels(embedding_outputs)
-
-    # hdbscan_labels = generate_hmm_states(embedding_outputs, context=context)
 
     np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
-
 
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
