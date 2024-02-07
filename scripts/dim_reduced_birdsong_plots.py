@@ -36,9 +36,9 @@ layer_index=1,
 dict_key="attention_output", 
 time_bins_per_umap_point=1, 
 context=1000,  # Using new config parameter98
-raw_spectogram=False,
+raw_spectogram=True,
 save_dict_for_analysis = True,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/HDBSCAN_5000.png",
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/raw_spec_phrase_labels.png",
 compute_svm= False,
 color_scheme = "Label"
 )

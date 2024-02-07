@@ -78,39 +78,33 @@ def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=3000):
 
     return labels
 
-def calculate_relative_position_labels(ground_truth_labels, silence=0):
-    labels_array = np.array(ground_truth_labels)
-    relative_positions = np.zeros_like(labels_array, dtype=float)
+def syllable_to_phrase_labels(arr, silence=0):
+    new_arr = np.array(arr, dtype=int)
+    current_syllable = None
+    start_of_phrase_index = None
+    first_non_silence_label = None  # To track the first non-silence syllable
 
-    start_idx = None
-    current_label = None
+    for i, value in enumerate(new_arr):
+        if value != silence and value != current_syllable:
+            if start_of_phrase_index is not None:
+                new_arr[start_of_phrase_index:i] = current_syllable
+            current_syllable = value
+            start_of_phrase_index = i
+            
+            if first_non_silence_label is None:  # Found the first non-silence label
+                first_non_silence_label = value
 
-    for i, label in enumerate(labels_array):
-        # Check if it's the last element to prevent out-of-bounds access
-        is_last_element = i == len(labels_array) - 1
+    if start_of_phrase_index is not None:
+        new_arr[start_of_phrase_index:] = current_syllable
 
-        if label != silence:
-            if start_idx is None:
-                start_idx = i
-                current_label = label
-            elif label != current_label:
-                phrase_length = i - start_idx
-                relative_positions[start_idx:i] = np.linspace(0, 1, phrase_length)
-                start_idx = i
-                current_label = label
-        elif not is_last_element and (labels_array[i + 1] != silence and labels_array[i + 1] != current_label):
-            if start_idx is not None:
-                end_idx = i if labels_array[i + 1] != current_label else i + 1
-                phrase_length = end_idx - start_idx
-                relative_positions[start_idx:end_idx] = np.linspace(0, 1, phrase_length)
-                start_idx = None
+    # Replace the initial silence with the first non-silence syllable label
+    if new_arr[0] == silence and first_non_silence_label is not None:
+        for i in range(len(new_arr)):
+            if new_arr[i] != silence:
+                break
+            new_arr[i] = first_non_silence_label
 
-    # Handle the case where the last label is part of an ongoing phrase
-    if start_idx is not None:
-        phrase_length = len(labels_array) - start_idx
-        relative_positions[start_idx:] = np.linspace(0, 1, phrase_length)
-
-    return relative_positions.tolist()
+    return new_arr
 
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
@@ -125,6 +119,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     # to allow sci notation 
     samples = int(samples)
+    total_samples = 0
 
     data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
     data_loader_iter = iter(data_loader)
@@ -170,7 +165,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             print(f"samples collected f{len(ground_truth_labels_arr) * context}")
 
         if raw_spectogram == False:
-            embedding_output, layers = model.inference_forward(data.to(device))
+            _, layers = model.inference_forward(data.to(device))
 
             layer_output_dict = layers[layer_index]
             output = layer_output_dict.get(dict_key, None)
@@ -179,19 +174,14 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
                 print(f"Invalid key: {dict_key}. Skipping this batch.")
                 continue
 
-            # number of times the spectogram must be broken apart 
-            num_times = context // time_bins_per_umap_point
             batches, time_bins, features = output.shape 
-
             # data shape [0] is the number of batches, 
-            predictions = output.reshape(batches, num_times, time_bins_per_umap_point, features)
-            
+            predictions = output.reshape(batches, time_bins, features)
             # combine the batches and number of samples per context window 
             predictions = predictions.flatten(0,1)
-            # combine features and time bins
-            predictions = predictions.flatten(-2,-1)
             predictions_arr.append(predictions.detach().cpu().numpy())
 
+        # remove channel dimension 
         data = data.squeeze(1)
         spec = data
 
@@ -207,11 +197,9 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         spec_arr.append(spec.cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
         
-    with open(file_path, 'rb') as file:
-        color_map_data = pickle.load(file)
+        total_samples += spec.shape[0]
 
-    label_to_color = {label: tuple(color) for label, color in color_map_data.items()}
-    
+    # convert the list of batch * samples * features to samples * features 
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
     spec_arr = np.concatenate(spec_arr, axis=0)
 
@@ -233,76 +221,21 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
 
-    np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+    ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels)
+
+    # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
 
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
 
-    if remove_silences == True:
-        index_where_silence = np.where(ground_truth_labels != 0) 
-        embedding_outputs = embedding_outputs[index_where_silence]
-        ground_truth_labels = ground_truth_labels[index_where_silence]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
-    if compute_svm:
-        # Fit SVM on the UMAP embeddings
-        scaler = StandardScaler()
-        embedding_scaled = scaler.fit_transform(embedding_outputs)
-        svm_model = SVC(kernel='linear')
-        svm_model.fit(embedding_scaled, ground_truth_labels)
+    axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+    axes[0].set_title("HDBSCAN")
 
-        # Create grid to plot decision boundaries
-        h = .02  # Step size in the mesh
-        x_min, x_max = embedding_scaled[:, 0].min() - 1, embedding_scaled[:, 0].max() + 1
-        y_min, y_max = embedding_scaled[:, 1].min() - 1, embedding_scaled[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-        # Create a custom colormap from the label_to_color mapping
-        unique_labels = np.unique(ground_truth_labels)
-        unique_colors = [label_to_color[label] for label in unique_labels]
-        cmap = mcolors.ListedColormap(unique_colors)
-
-        # Plot decision boundary using the custom colormap
-        Z = svm_model.predict(np.c_[xx.ravel(), yy.ravel()])
-        Z = Z.reshape(xx.shape)
-
-        # Create the plot using scaled embeddings
-        plt.scatter(embedding_scaled[:, 0], embedding_scaled[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, edgecolors='k', alpha=1)
-        plt.contourf(xx, yy, Z, alpha=0.25, levels=np.linspace(Z.min(), Z.max(), 100), cmap=cmap, antialiased=True)
-
-        plt.xlabel('UMAP 1st Component (scaled)')
-        plt.ylabel('UMAP 2nd Component (scaled)')
-        plt.xlim(xx.min(), xx.max())
-        plt.ylim(yy.min(), yy.max())
-        plt.xticks(())
-        plt.yticks(())
-        plt.tight_layout()
-
-    # Plot with color scheme "Time"
-    if color_scheme == "Time":
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
-
-        relative_labels = calculate_relative_position_labels(ground_truth_labels)
-        relative_labels = np.array(relative_labels)
-
-        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=relative_labels, s=10, alpha=.1)
-        axes[0].set_title("Time-based Coloring")
-
-        # Plot with the original color scheme
-        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
-        axes[1].set_title("Original Coloring")
-
-    else:
-        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=[label_to_color[lbl] for lbl in ground_truth_labels], s=10, alpha=.1)
-        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
-        # plt.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1)  
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
-
-        axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
-        axes[0].set_title("HDBSCAN")
-
-        # Plot with the original color scheme
-        axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
-        axes[1].set_title("Original Coloring")
+    # Plot with the original color scheme
+    axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
+    axes[1].set_title("Original Coloring")
 
     if raw_spectogram:
         plt.title(f'UMAP of Spectogram', fontsize=14)
@@ -315,45 +248,45 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     else:
         plt.show()
 
-    # horrible code, not my fault... 
-    if save_dict_for_analysis:
-        # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
-        print(f"embedings arr {embedding_outputs.shape}")
+    # # horrible code, not my fault... 
+    # if save_dict_for_analysis:
+    #     # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
+    #     print(f"embedings arr {embedding_outputs.shape}")
 
-        # start end 
-        step_size = 2.7 * time_bins_per_umap_point
+    #     # start end 
+    #     step_size = 2.7 * time_bins_per_umap_point
 
-        emb_start = np.arange(0, step_size * embedding_outputs.shape[0], step_size)
-        emb_end = emb_start + step_size 
-        embStartEnd = np.stack((emb_start, emb_end), axis=0)
-        print(f"embstartend {embStartEnd.shape}")
+    #     emb_start = np.arange(0, step_size * embedding_outputs.shape[0], step_size)
+    #     emb_end = emb_start + step_size 
+    #     embStartEnd = np.stack((emb_start, emb_end), axis=0)
+    #     print(f"embstartend {embStartEnd.shape}")
 
-        colors_for_points = np.array([label_to_color[lbl] for lbl in ground_truth_labels])
-        print(f"mean_colors_per_minispec {colors_for_points.shape}")
+    #     colors_for_points = np.array([label_to_color[lbl] for lbl in ground_truth_labels])
+    #     print(f"mean_colors_per_minispec {colors_for_points.shape}")
 
-        colors_per_timepoint = []
+    #     colors_per_timepoint = []
 
-        ground_truth_labels = ground_truth_labels.reshape(-1, 1)
-        for label_row in ground_truth_labels:
-            avg_color = label_to_color[int(label_row)]
-            colors_per_timepoint.append(avg_color)
-        colors_per_timepoint = np.array(colors_per_timepoint)
+    #     ground_truth_labels = ground_truth_labels.reshape(-1, 1)
+    #     for label_row in ground_truth_labels:
+    #         avg_color = label_to_color[int(label_row)]
+    #         colors_per_timepoint.append(avg_color)
+    #     colors_per_timepoint = np.array(colors_per_timepoint)
 
-        print(f"colors_per_timepoint {colors_per_timepoint.shape}")
+    #     print(f"colors_per_timepoint {colors_per_timepoint.shape}")
 
-        embVals = embedding_outputs
-        behavioralArr = spec_arr.T
-        mean_colors_per_minispec = colors_for_points
+    #     embVals = embedding_outputs
+    #     behavioralArr = spec_arr.T
+    #     mean_colors_per_minispec = colors_for_points
 
-        print(f"behavioral arr{behavioralArr.shape}")
+    #     print(f"behavioral arr{behavioralArr.shape}")
 
-        # Save the arrays into a single .npz file
-        np.savez_compressed('/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/umap_dict_file.npz', 
-                            embStartEnd=embStartEnd, 
-                            embVals=embVals, 
-                            behavioralArr=behavioralArr, 
-                            mean_colors_per_minispec=mean_colors_per_minispec, 
-                            colors_per_timepoint=colors_per_timepoint)
+    #     # Save the arrays into a single .npz file
+    #     np.savez_compressed('/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/umap_dict_file.npz', 
+    #                         embStartEnd=embStartEnd, 
+    #                         embVals=embVals, 
+    #                         behavioralArr=behavioralArr, 
+    #                         mean_colors_per_minispec=mean_colors_per_minispec, 
+    #                         colors_per_timepoint=colors_per_timepoint)
 
 
 import numpy as np
