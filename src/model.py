@@ -352,72 +352,9 @@ class TweetyBERT(nn.Module):
         x = self.transformerDeProjection(x)
         return x, all_outputs
 
-    def cross_entropy_loss(self, predictions, targets, mask):
-        epsilon = 1e-6
-        alpha = self.alpha
-
-        targets = targets.argmax(dim=-1)
-
-        all_labels = torch.arange(self.num_labels).to(predictions.device)
-        all_labels = self.label_embedding(all_labels)
-
-        csim = torch.einsum('bse,le->bsl', predictions, all_labels)
-        csim /= (predictions.norm(dim=-1, keepdim=True) * all_labels.norm(dim=-1, keepdim=True).T)
-
-        # Scale the logits by the temperature
-        scaled_csim = csim
-
-        softmax_csim = F.softmax(scaled_csim, dim=-1)  # use scaled cosine similarity
-
-        predicted_labels = torch.argmax(softmax_csim, dim=-1)
-        correct_predictions = (predicted_labels == targets).float()
-
-        masked_indices = mask[:, 0, :] == 1.0
-        unmasked_indices = ~masked_indices
-
-        if masked_indices.sum() > 0:
-            masked_correct_predictions = correct_predictions[masked_indices]
-            masked_sequence_accuracy = masked_correct_predictions.mean()
-        else:
-            masked_sequence_accuracy = torch.tensor(0.0).to(predictions.device)
-
-        if unmasked_indices.sum() > 0:
-            unmasked_correct_predictions = correct_predictions[unmasked_indices]
-            unmasked_sequence_accuracy = unmasked_correct_predictions.mean()
-        else:
-            unmasked_sequence_accuracy = torch.tensor(0.0).to(predictions.device)
-
-        log_softmax_csim = -torch.log(softmax_csim + epsilon)
-        loss = torch.gather(log_softmax_csim, dim=-1, index=targets.unsqueeze(-1)).squeeze(-1)
-
-        loss_heatmap = torch.gather(log_softmax_csim, dim=-1, index=targets.unsqueeze(-1))
-
-        if masked_indices.sum() > 0:
-            masked_loss = loss[masked_indices].mean()
-        else:
-            masked_loss = epsilon
-
-        if unmasked_indices.sum() > 0:
-            unmasked_loss = loss[unmasked_indices].mean()
-        else:
-            unmasked_loss = epsilon
-
-        masked_loss += epsilon
-        unmasked_loss += epsilon
-        combined_loss = alpha * masked_loss + (1 - alpha) * unmasked_loss
-
-        return combined_loss, masked_sequence_accuracy, unmasked_sequence_accuracy, targets, predicted_labels, loss_heatmap, softmax_csim
-
-
     def mse_loss(self, predictions, mask, spec):
         epsilon = 1e-6
         alpha = self.alpha
-
-        # think about what this normalization means 
-        # spec = self.normalize_tensor(spec)
-
-        # predictions shape is batch, seq len, embedding size (has to match freq bin)
-        # spec shape is batch, channel, freq bin, seq len 
 
         spec = spec.squeeze(1)
         reshaped_spec = spec.permute(0,2,1)
@@ -444,25 +381,3 @@ class TweetyBERT(nn.Module):
         combined_loss = alpha * masked_loss + (1 - alpha) * unmasked_loss
 
         return combined_loss, masked_loss, unmasked_loss, mse_loss
-    
-    def normalize_tensor(self, tensor):
-        """
-        Normalize a tensor to have values between 0 and 1.
-        
-        Args:
-        tensor (torch.Tensor): A tensor of shape (batch, seq_len, embedding_size).
-
-        Returns:
-        torch.Tensor: Normalized tensor with values between 0 and 1.
-        """
-        # Flattening the tensor for min and max calculation
-        flat_tensor = tensor.reshape(-1)
-
-        # Finding the minimum and maximum values
-        min_val = flat_tensor.min()
-        max_val = flat_tensor.max()
-
-        # Normalizing the tensor
-        normalized_tensor = (tensor - min_val) / (max_val - min_val)
-
-        return normalized_tensor

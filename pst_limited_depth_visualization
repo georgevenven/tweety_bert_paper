@@ -1,0 +1,4 @@
+// PST Limited Depth
+digraph {
+	dpi=300 nodesep=0.5 rankdir=TB ranksep=1 size="10,10!"
+}

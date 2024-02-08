@@ -13,7 +13,6 @@ class SongDataSet_Image(Dataset):
         self.pseudo_labels_generated = psuedo_labels_generated
         self.max_retries = max_retries
 
-
         for file in os.listdir(file_dir):
             self.file_paths.append(os.path.join(file_dir, file))
 
@@ -24,6 +23,7 @@ class SongDataSet_Image(Dataset):
         while not valid_data and attempts < self.max_retries:
             try:
                 file_path = self.file_paths[index]
+                print(file_path)
 
                 data = np.load(file_path, allow_pickle=True)
                 spectogram = data['s']
