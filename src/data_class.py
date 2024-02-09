@@ -17,55 +17,40 @@ class SongDataSet_Image(Dataset):
             self.file_paths.append(os.path.join(file_dir, file))
 
     def __getitem__(self, index):
-        valid_data = False
-        attempts = 0
+        file_path = self.file_paths[index]
+        data = np.load(file_path, allow_pickle=True)
+        spectogram = data['s']
 
-        while not valid_data and attempts < self.max_retries:
-            try:
-                file_path = self.file_paths[index]
-                print(file_path)
+        ground_truth_labels = data['labels']
 
-                data = np.load(file_path, allow_pickle=True)
-                spectogram = data['s']
+        if self.pseudo_labels_generated:
+            pseudo_labels = data['new_labels']
+        else:
+            pseudo_labels = data['labels']
+            # Z-score normalization
+            mean_val, std_val = spectogram.mean(), spectogram.std()
+            spectogram = (spectogram - mean_val) / (std_val + 1e-7)
+            spectogram[np.isnan(spectogram)] = 0
+            spectogram = spectogram[20:216, :]
 
-                ground_truth_labels = data['labels']
+        max_indices = np.argmax(spectogram, axis=0, keepdims=True)
+        max_indices = torch.tensor(max_indices, dtype=torch.int64).squeeze(0)
 
-                if self.pseudo_labels_generated:
-                    pseudo_labels = data['new_labels']
-                else:
-                    pseudo_labels = data['labels']
-                    # Z-score normalization
-                    mean_val, std_val = spectogram.mean(), spectogram.std()
-                    spectogram = (spectogram - mean_val) / (std_val + 1e-7)
-                    spectogram[np.isnan(spectogram)] = 0
-                    spectogram = spectogram[20:216, :]
+        ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
+        pseudo_labels = torch.tensor(pseudo_labels, dtype=torch.int64).squeeze(0)
 
-                max_indices = np.argmax(spectogram, axis=0, keepdims=True)
-                max_indices = torch.tensor(max_indices, dtype=torch.int64).squeeze(0)
+        spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
 
-                ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
-                pseudo_labels = torch.tensor(pseudo_labels, dtype=torch.int64).squeeze(0)
+        if self.remove_silences:
+            not_silent_indexes = torch.where(max_indices != 0)[0]
+            spectogram = spectogram[not_silent_indexes]
+            pseudo_labels = pseudo_labels[not_silent_indexes]
+            ground_truth_labels = ground_truth_labels[not_silent_indexes]
 
-                spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
+        ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
+        pseudo_labels = F.one_hot(pseudo_labels, num_classes=self.num_classes).float()
 
-                if self.remove_silences:
-                    not_silent_indexes = torch.where(max_indices != 0)[0]
-                    spectogram = spectogram[not_silent_indexes]
-                    pseudo_labels = pseudo_labels[not_silent_indexes]
-                    ground_truth_labels = ground_truth_labels[not_silent_indexes]
-
-                ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
-                pseudo_labels = F.one_hot(pseudo_labels, num_classes=self.num_classes).float()
-
-                return spectogram, pseudo_labels, ground_truth_labels
-
-            except Exception as e:
-                print(f"Error loading data at index {index}: {e}")
-                index = (index + 1) % len(self.file_paths)  # Try the next data point
-                attempts += 1
-
-        if attempts == self.max_retries:
-            raise RuntimeError(f"Failed to fetch a valid data point after {self.max_retries} attempts.")
+        return spectogram, pseudo_labels, ground_truth_labels
 
     def __len__(self):
         return len(self.file_paths)

@@ -177,9 +177,6 @@ class ModelTrainer:
     def visualize_masked_predictions(self, step, spec, label):
         self.model.eval()
         with torch.no_grad():
-            spec = spec.to(self.device)
-            label = label.to(self.device)
-
             # Forward pass through the model
             output, mask, _, all_outputs = self.model.train_forward(spec)
 
@@ -272,7 +269,6 @@ class ModelTrainer:
 
             # Store metrics after each step
             raw_loss_list.append(loss.item())
-
 
             # Your existing code where validation loss is computed
             val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step, test_iter)
