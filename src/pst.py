@@ -131,6 +131,29 @@ def majority_vote(data):
 
     return output
 
+import re
+def integer_to_letter(match):
+    """Converts an integer match to a corresponding letter (1 -> A, 2 -> B, etc.)."""
+    num = int(match.group())
+    # Subtract 1 from the number to get 0-based indexing for letters, then mod by 26 to handle numbers > 26
+    return chr((num - 1) % 26 + ord('A'))
+
+def replace_integers_with_letters(file_path):
+    """Reads a file, replaces all integers with their corresponding letters, and writes the changes back to the file."""
+    with open(file_path, 'r') as file:
+        content = file.read()
+    
+    # Replace all occurrences of integers in the file with their corresponding letters
+    modified_content = re.sub(r'\b\d+\b', integer_to_letter, content)
+    
+    with open(file_path, 'w') as file:
+        file.write(modified_content)
+
+# # Replace '/home/george-vengrovski/Documents/projects/tweety_bert_paper/gtruth_pst_data.txt'
+# # with your actual file path
+# file_path = '/home/george-vengrovski/Documents/projects/tweety_bert_paper/hdbscan_labels.txt'
+# replace_integers_with_letters(file_path)
+        
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
                          layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
@@ -240,30 +263,46 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
-    hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_cluster_size=2000)
+    hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_cluster_size=1000)
     hdbscan_labels = majority_vote(hdbscan_labels)
 
-    with open('hdbscanlabels.npy', 'wb') as f:
-        np.save(f, hdbscan_labels)
+    ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels, silence=0)
 
-    list_of_phrases = []
-    prev_index = 0
-    for index in list_of_splitting_index:
-        list_of_phrases.append(hdbscan_labels[prev_index:index])
-        prev_index = index
+    # remove -1
+    hdbscan_labels = np.array(hdbscan_labels)
+    hdbscan_labels_with_noise = hdbscan_labels
+    remove_noise_index = np.where(hdbscan_labels == -1)[0]
+    hdbscan_labels = np.delete(hdbscan_labels, remove_noise_index)
+    ground_truth_labels_with_noise = ground_truth_labels
+    ground_truth_labels = np.delete(ground_truth_labels, remove_noise_index)
 
-    for i, phrase in enumerate(list_of_phrases):
-        phrase = syllable_to_phrase_labels(phrase)
-        phrase = reduce_phrases(phrase, remove_silence=False)
-        list_of_phrases[i] = phrase
+    print(hdbscan_labels.shape)
+    print(ground_truth_labels.shape)
 
-    import csv 
-    with open("gtruth_pst_data", 'w', newline='') as file:
-        writer = csv.writer(file)
+    from sklearn.metrics import adjusted_rand_score
+    print(f"adjusted rand score {adjusted_rand_score(hdbscan_labels, ground_truth_labels)}")
 
-        # Write each sublist to the CSV file
-        for row in list_of_phrases:
-            writer.writerow(row)
+    # with open('hdbscanlabels.npy', 'wb') as f:
+    #     np.save(f, hdbscan_labels)
+
+    # list_of_phrases = []
+    # prev_index = 0
+    # for index in list_of_splitting_index:
+    #     list_of_phrases.append(hdbscan_labels[prev_index:index])
+    #     prev_index = index
+
+    # for i, phrase in enumerate(list_of_phrases):
+    #     phrase = syllable_to_phrase_labels(phrase)
+    #     phrase = reduce_phrases(phrase, remove_silence=False)
+    #     list_of_phrases[i] = phrase
+
+    # import csv 
+    # with open("gtruth_pst_data", 'w', newline='') as file:
+    #     writer = csv.writer(file)
+
+    #     # Write each sublist to the CSV file
+    #     for row in list_of_phrases:
+    #         writer.writerow(row)
 
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
@@ -271,11 +310,11 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
     # Scatter plot for HDBSCAN
-    scatter_hdbscan = axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+    scatter_hdbscan = axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels_with_noise, s=10, alpha=.1, cmap=cmap)
     axes[0].set_title("HDBSCAN")
 
     # Scatter plot for Original Coloring
-    scatter_original = axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
+    scatter_original = axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels_with_noise, s=10, alpha=.1, cmap=cmap)
     axes[1].set_title("Original Coloring")
 
     if raw_spectogram:

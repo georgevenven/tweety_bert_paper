@@ -248,6 +248,13 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     else:
         plt.show()
 
+    embedding_outputs = reducer.fit_transform(predictions)
+    hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+
+    ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels)
+    np.savez("500k_run", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
+
+
     # # horrible code, not my fault... 
     # if save_dict_for_analysis:
     #     # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
