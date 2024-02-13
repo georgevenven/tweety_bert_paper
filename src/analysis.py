@@ -14,38 +14,34 @@ import os
 from hmmlearn import hmm
 import colorcet as cc
 import glasbey
+import re 
+import sys
+import os 
+from data_class import SongDataSet_Image, CollateFunction
+from model import TweetyBERT
+from analysis import plot_umap_projection
+from utils import detailed_count_parameters, load_weights, load_model
+from collections import Counter
+import pickle
+import umap
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+from data_class import SongDataSet_Image
+from torch.utils.data import DataLoader
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from scipy.spatial import distance
+import matplotlib.colors as mcolors
+from hmmlearn import hmm
+import colorcet as cc
+import glasbey
 
 def load_data( data_dir, context=1000, psuedo_labels_generated=True):
     dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=psuedo_labels_generated)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
-
-def plot_spectrogram_with_labels(spectrogram, labels):
-    """
-    Plots a spectrogram with a corresponding line plot overlay representing label values between 0 and 1.
-
-    Args:
-        spectrogram (np.array): 2D array representing the spectrogram, shape (time_bins, frequencies).
-        labels (List[float]): List of label values for each timebin in the spectrogram, ranging from 0 to 1.
-    """
-
-    # Create a figure and axis
-    fig, ax = plt.subplots(figsize=(10, 4))
-
-    # Plot the spectrogram
-    cax = ax.imshow(spectrogram, aspect='auto', origin='lower')
-
-    # Create time points for x-axis of the line plot
-    time_points = np.arange(len(labels))
-
-    # Overlay the line plot on the spectrogram
-    # Note: Adjust the line plot's y-values to match the spectrogram's y-axis
-    ax.plot(time_points, labels * spectrogram.shape[0], color='cyan', linewidth=2)
-
-    # Add colorbar for the spectrogram
-    fig.colorbar(cax, ax=ax, orientation='vertical')
-
-    plt.show()
 
 def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=3000):
     """
@@ -77,34 +73,6 @@ def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=3000):
     print(np.unique(labels))
 
     return labels
-
-def syllable_to_phrase_labels(arr, silence=0):
-    new_arr = np.array(arr, dtype=int)
-    current_syllable = None
-    start_of_phrase_index = None
-    first_non_silence_label = None  # To track the first non-silence syllable
-
-    for i, value in enumerate(new_arr):
-        if value != silence and value != current_syllable:
-            if start_of_phrase_index is not None:
-                new_arr[start_of_phrase_index:i] = current_syllable
-            current_syllable = value
-            start_of_phrase_index = i
-            
-            if first_non_silence_label is None:  # Found the first non-silence label
-                first_non_silence_label = value
-
-    if start_of_phrase_index is not None:
-        new_arr[start_of_phrase_index:] = current_syllable
-
-    # Replace the initial silence with the first non-silence syllable label
-    if new_arr[0] == silence and first_non_silence_label is not None:
-        for i in range(len(new_arr)):
-            if new_arr[i] != silence:
-                break
-            new_arr[i] = first_non_silence_label
-
-    return new_arr
 
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
@@ -220,8 +188,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-
     ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels)
+    np.savez("files/labels.npy", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
     # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
 
@@ -247,12 +215,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         plt.savefig(save_dir, format='png')
     else:
         plt.show()
-
-    embedding_outputs = reducer.fit_transform(predictions)
-    hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-
-    ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels)
-    np.savez("500k_run", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
 
     # # horrible code, not my fault... 
@@ -295,167 +257,124 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     #                         mean_colors_per_minispec=mean_colors_per_minispec, 
     #                         colors_per_timepoint=colors_per_timepoint)
 
+class AnalyzeSyntax():
+    def __init__(self):
+            pass
 
-import numpy as np
-from scipy.spatial import distance
-import random
-import matplotlib.pyplot as plt
+    def syllable_to_phrase_labels(self, arr, silence=-1):
+        new_arr = np.array(arr, dtype=int)
+        current_syllable = None
+        start_of_phrase_index = None
+        first_non_silence_label = None  # To track the first non-silence syllable
 
-def average_similarity_between_samples(group1, group2, sample_size=30):
-    """
-    Calculates the average cosine similarity and Euclidean distance between samples of two groups of vectors.
-    """
-    # Sample vectors from both groups
-    group1_sample = random.sample(group1, min(len(group1), sample_size))
-    group2_sample = random.sample(group2, min(len(group2), sample_size))
+        for i, value in enumerate(new_arr):
+            if value != silence and value != current_syllable:
+                if start_of_phrase_index is not None:
+                    new_arr[start_of_phrase_index:i] = current_syllable
+                current_syllable = value
+                start_of_phrase_index = i
+                
+                if first_non_silence_label is None:  # Found the first non-silence label
+                    first_non_silence_label = value
 
-    # Convert to numpy arrays for distance calculation
-    group1_sample = np.stack(group1_sample)
-    group2_sample = np.stack(group2_sample)
+        if start_of_phrase_index is not None:
+            new_arr[start_of_phrase_index:] = current_syllable
 
-    # Calculate pairwise cosine and Euclidean distances
-    cosine_distances = distance.cdist(group1_sample, group2_sample, 'cosine')
-    euclidean_distances = distance.cdist(group1_sample, group2_sample, 'euclidean')
+        # Replace the initial silence with the first non-silence syllable label
+        if new_arr[0] == silence and first_non_silence_label is not None:
+            for i in range(len(new_arr)):
+                if new_arr[i] != silence:
+                    break
+                new_arr[i] = first_non_silence_label
 
-    # Convert cosine distances to similarities
-    cosine_similarities = 1 - cosine_distances
+        return new_arr
 
-    # Calculate average similarities/distances
-    return np.mean(cosine_similarities), np.mean(euclidean_distances)
+    def reduce_phrases(self, arr, remove_silence=True):
+        current_element = arr[0]
+        reduced_list = [] 
 
-def compare_across_keys(vectors_dict, sample_size=30):
-    """
-    Compares vectors across keys by calculating average similarities between sampled subsets, including self comparisons.
-    """
-    keys = list(vectors_dict.keys())
-    comparisons = {}
+        for i, value in enumerate(arr):
+            if value != current_element:
+                reduced_list.append(current_element)
+                current_element = value 
 
-    for key1 in keys:
-        for key2 in keys:  # Compare with itself and every other key
-            avg_cosine_sim, avg_euclidean_dist = average_similarity_between_samples(vectors_dict[key1], vectors_dict[key2], sample_size)
-            comparisons[(key1, key2)] = {'Average Cosine Similarity': avg_cosine_sim, 'Average Euclidean Distance': avg_euclidean_dist}
+            # append last phrase
+            if i == len(arr) - 1:
+                reduced_list.append(current_element)
 
-    return comparisons
+        if remove_silence == True:
+            reduced_list = [value for value in reduced_list if value != 0]
 
-def create_similarity_matrices(comparisons, keys):
-    """
-    Creates matrices for cosine similarities and Euclidean distances based on comparisons.
-    """
-    n = len(keys)
-    cosine_matrix = np.zeros((n, n))
-    euclidean_matrix = np.zeros((n, n))
-    key_to_index = {key: i for i, key in enumerate(keys)}
+        return np.array(reduced_list)
 
-    for (key1, key2), metrics in comparisons.items():
-        i, j = key_to_index[key1], key_to_index[key2]
-        cosine_matrix[i, j] = metrics['Average Cosine Similarity']
-        euclidean_matrix[i, j] = metrics['Average Euclidean Distance']
+    def majority_vote(self, data):
+        # Function to find the majority element in a window
+        def find_majority(window):
+            count = Counter(window)
+            majority = max(count.values())
+            for num, freq in count.items():
+                if freq == majority:
+                    return num
+            return window[1]  # Return the middle element if no majority found
 
-    return cosine_matrix, euclidean_matrix
+        # Ensure the input data is in list form
+        if isinstance(data, str):
+            data = [int(x) for x in data.split(',') if x.strip().isdigit()]
 
-def plot_similarity_matrix(matrix, title, cmap='viridis', save_dir=None):
-    """
-    Plots a similarity matrix and saves the plot to a file if save_dir is provided.
-    """
-    plt.figure(figsize=(10, 8))
-    plt.imshow(matrix, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
-    plt.colorbar()
-    plt.title(title)
-    plt.xlabel('Key Index')
-    plt.ylabel('Key Index')
+        # Initialize the output array with a padding at the beginning
+        output = [data[0]]  # Pad with the first element
 
-    if save_dir is not None:
-        # Ensure the save_dir exists, create if not
-        os.makedirs(save_dir, exist_ok=True)
-        filename = f"{title.replace(' ', '_')}.png"  # Replace spaces with underscores for the filename
-        filepath = os.path.join(save_dir, filename)
-        plt.savefig(filepath)
-        plt.close()  # Close the plot to free up memory
-        print(f"Plot saved as {filepath}")
-    else:
-        plt.show()
+        # Apply the majority vote on each window
+        for i in range(1, len(data) - 1):  # Start from 1 and end at len(data) - 1 to avoid index out of range
+            window = data[i-1:i+2]  # Define the window with size 3
+            output.append(find_majority(window))
 
-def similarity_of_vectors(model, device, data_dir="test_llb16",
-                         remove_silences=False, samples=100, file_path='category_colors.pkl', 
-                         layer_index=1, dict_key="V",
-                         context=1000, save_dir=None, raw_spectogram=False):
+        # Pad the output array at the end to match the input array size
+        output.append(data[-1])
 
-    raw_spec_vectors = {}
-    neural_activation_vectors = {}
+        return output
 
-    # Reset Figure
-    plt.figure(figsize=(8, 6))
+    def integer_to_letter(self, match):
+        """Converts an integer match to a corresponding letter (1 -> A, 2 -> B, etc.)."""
+        num = int(match.group())
+        # Subtract 1 from the number to get 0-based indexing for letters, then mod by 26 to handle numbers > 26
+        return chr((num - 1) % 26 + ord('A'))
 
-    # to allow sci notation 
-    samples = int(samples)
+    def replace_integers_with_letters(self, file_path):
+        """Reads a file, replaces all integers with their corresponding letters, and writes the changes back to the file."""
+        with open(file_path, 'r') as file:
+            content = file.read()
+        
+        # Replace all occurrences of integers in the file with their corresponding letters
+        modified_content = re.sub(r'\b\d+\b', self.integer_to_letter, content)
+        
+        with open(file_path, 'w') as file:
+            file.write(modified_content)    
 
-    data_loader = load_data(data_dir=data_dir, remove_silences=remove_silences, context=context, psuedo_labels_generated=True)
-    data_loader_iter = iter(data_loader)
+    def syllable_to_phrase_labels(self, arr, silence=0):
+        new_arr = np.array(arr, dtype=int)
+        current_syllable = None
+        start_of_phrase_index = None
+        first_non_silence_label = None  # To track the first non-silence syllable
 
-    i = 0
-    while i < samples:
-        # Because of the random windows being drawn from songs, it makes sense to reinit dataloader for UMAP plots 
-        try:
-            # Retrieve the next batch
-            data, _, ground_truth_label = next(data_loader_iter)
+        for i, value in enumerate(new_arr):
+            if value != silence and value != current_syllable:
+                if start_of_phrase_index is not None:
+                    new_arr[start_of_phrase_index:i] = current_syllable
+                current_syllable = value
+                start_of_phrase_index = i
+                
+                if first_non_silence_label is None:  # Found the first non-silence label
+                    first_non_silence_label = value
 
-        except StopIteration:
-            # Reinitialize the DataLoader iterator when all batches are exhausted
-            data_loader_iter = iter(data_loader)
-            data, _, ground_truth_label = next(data_loader_iter)
+        if start_of_phrase_index is not None:
+            new_arr[start_of_phrase_index:] = current_syllable
 
-        _, layers = model.inference_forward(data.to(device))
+        # Replace the initial silence with the first non-silence syllable label
+        if new_arr[0] == silence and first_non_silence_label is not None:
+            for i in range(len(new_arr)):
+                if new_arr[i] != silence:
+                    break
+                new_arr[i] = first_non_silence_label
 
-        layer_output_dict = layers[layer_index]
-        output = layer_output_dict.get(dict_key, None)
-
-        if output is None:
-            print(f"Invalid key: {dict_key}. Skipping this batch.")
-            continue
-
-        ground_truth_label = ground_truth_label.argmax(-1).flatten()
-
-        # reshape to remove batch channel, and make time sequence first dim
-        data = data[0,0].T
-
-        # remove batch and make time sequence the first dimension 
-        output = output[0]
-
-        for idx, label in enumerate(ground_truth_label):
-            label_item = label.item()
-
-            if label_item not in raw_spec_vectors:
-                raw_spec_vectors[label_item] = []
-            raw_spec_vectors[label_item].append(output[idx].detach().cpu().numpy())
-
-            if label_item not in neural_activation_vectors:
-                neural_activation_vectors[label_item] = []
-            neural_activation_vectors[label_item].append(data[idx].detach().cpu().numpy())
-
-        i += 1  # Increment the loop counter
-
-    SAMPLE_SIZE = 100  # Adjust based on your dataset size and computational resources
-
-    # Assuming raw_spec_vectors and neural_activation_vectors are already populated
-    raw_spec_comparisons = compare_across_keys(raw_spec_vectors, sample_size=SAMPLE_SIZE)
-    neural_activation_comparisons = compare_across_keys(neural_activation_vectors, sample_size=SAMPLE_SIZE)
-
-    # Create and plot similarity matrices for raw spectrogram vectors
-    raw_spec_keys = list(raw_spec_vectors.keys())
-    raw_cosine_matrix, raw_euclidean_matrix = create_similarity_matrices(raw_spec_comparisons, raw_spec_keys)
-    plot_similarity_matrix(raw_cosine_matrix, 'Average Cosine Similarity Matrix for Raw Spectrograms', save_dir='results/vec_comp')
-    # plot_similarity_matrix(raw_euclidean_matrix, 'Average Euclidean Distance Matrix for Raw Spectrograms', cmap='magma')
-
-    # Create and plot similarity matrices for neural activation vectors
-    neural_activation_keys = list(neural_activation_vectors.keys())
-    neural_cosine_matrix, neural_euclidean_matrix = create_similarity_matrices(neural_activation_comparisons, neural_activation_keys)
-    plot_similarity_matrix(neural_cosine_matrix, 'Average Cosine Similarity Matrix for Neural Activations', save_dir='results/vec_comp')
-    # plot_similarity_matrix(neural_euclidean_matrix, 'Average Euclidean Distance Matrix for Neural Activations', cmap='magma')
-
-    # Print comparison metrics for raw spectrogram vectors
-    for key_pair, metrics in raw_spec_comparisons.items():
-        print(f"Raw Spec Vectors - Key Pair: {key_pair}, Metrics: {metrics}")
-
-    # Print comparison metrics for neural activation vectors
-    for key_pair, metrics in neural_activation_comparisons.items():
-        print(f"Neural Activation Vectors - Key Pair: {key_pair}, Metrics: {metrics}")
+        return new_arr

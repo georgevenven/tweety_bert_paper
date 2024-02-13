@@ -5,6 +5,7 @@ experiments
 *.png
 /train
 /test
+/archive
 temp
 llb3_test
 llb3_train 
