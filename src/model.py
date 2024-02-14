@@ -87,7 +87,7 @@ class CustomEncoderBlock(nn.Module):
         x_norm = self.layer_norm1(x)
         
         # Attention mechanism
-        attn_result = self.self_attn(x_norm, x_norm, x_norm, mask)
+        attn_result = self.self_attn(Q=x_norm, K=x_norm, V=x_norm, mask=mask)
 
         # Attention weights context length * context length dim * 1 (softmax value)
         attention_graph = (attn_result['attention_weights'])
