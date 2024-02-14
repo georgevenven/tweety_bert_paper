@@ -1,42 +1,42 @@
-import pickle
-import umap
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from data_class import SongDataSet_Image, CollateFunction
-from torch.utils.data import DataLoader
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-from scipy.spatial import distance
 import matplotlib.colors as mcolors
-import os 
-from hmmlearn import hmm
-import colorcet as cc
-import glasbey
 import re 
-import sys
-import os 
-from data_class import SongDataSet_Image, CollateFunction
-from model import TweetyBERT
-from analysis import plot_umap_projection
-from utils import detailed_count_parameters, load_weights, load_model
 from collections import Counter
-import pickle
 import umap
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
 from data_class import SongDataSet_Image
 from torch.utils.data import DataLoader
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-from scipy.spatial import distance
-import matplotlib.colors as mcolors
-from hmmlearn import hmm
-import colorcet as cc
 import glasbey
+
+def syllable_to_phrase_labels(self, arr, silence=-1):
+    new_arr = np.array(arr, dtype=int)
+    current_syllable = None
+    start_of_phrase_index = None
+    first_non_silence_label = None  # To track the first non-silence syllable
+
+    for i, value in enumerate(new_arr):
+        if value != silence and value != current_syllable:
+            if start_of_phrase_index is not None:
+                new_arr[start_of_phrase_index:i] = current_syllable
+            current_syllable = value
+            start_of_phrase_index = i
+            
+            if first_non_silence_label is None:  # Found the first non-silence label
+                first_non_silence_label = value
+
+    if start_of_phrase_index is not None:
+        new_arr[start_of_phrase_index:] = current_syllable
+
+    # Replace the initial silence with the first non-silence syllable label
+    if new_arr[0] == silence and first_non_silence_label is not None:
+        for i in range(len(new_arr)):
+            if new_arr[i] != silence:
+                break
+            new_arr[i] = first_non_silence_label
+
+    return new_arr
 
 def load_data( data_dir, context=1000, psuedo_labels_generated=True):
     dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=psuedo_labels_generated)
