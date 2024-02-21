@@ -90,15 +90,6 @@ class ExperimentRunner:
         if 'path_to_prototype_clusters' not in config:
             config['path_to_prototype_clusters'] = None 
 
-
-        from utils import load_model
-        ###### REMOVE AS SOON AS DONE #########
-                
-        weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/saved_weights/model_step_6400.pth"
-        config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/config.json"
-
-        model = load_model(config_path, weights_path)
-
         # Initialize trainer
         trainer = ModelTrainer(
             model, 

@@ -198,7 +198,7 @@ class ModelTrainer:
             try:
                 spec, label, _ = next(test_iter)
             except StopIteration:
-                train_iter = iter(self.test_loader)
+                test_iter = iter(self.test_loader)
                 spec, label, _ = next(test_iter)
 
             # Fetch the next batch from the validation set
@@ -255,6 +255,9 @@ class ModelTrainer:
             spec = spec.to(self.device)
             label = label.to(self.device)
             ground_truth = ground_truth.to(self.device)
+
+
+            self.model.train()  # Explicitly set the model to training mode
 
             output, mask, *rest = self.model.train_forward(spec)
 

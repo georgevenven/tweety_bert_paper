@@ -9,8 +9,12 @@ import umap
 from data_class import SongDataSet_Image
 from torch.utils.data import DataLoader
 import glasbey
+from sklearn.metrics.cluster import completeness_score
+import seaborn as sns
+import pandas as pd
+from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
 
-def syllable_to_phrase_labels(self, arr, silence=-1):
+def syllable_to_phrase_labels(arr, silence=-1):
     new_arr = np.array(arr, dtype=int)
     current_syllable = None
     start_of_phrase_index = None
@@ -43,7 +47,7 @@ def load_data( data_dir, context=1000, psuedo_labels_generated=True):
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
-def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=3000):
+def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=1000):
     """
     Generate labels for data points using the HDBSCAN (Hierarchical Density-Based Spatial Clustering of Applications with Noise) clustering algorithm.
 
@@ -130,7 +134,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             
         except StopIteration:
             # if test set is exhausted, print the number of samples collected and stop the collection process
-            print(f"samples collected f{len(ground_truth_labels_arr) * context}")
+            print(f"samples collected {len(ground_truth_labels_arr) * context}")
+            break
 
         if raw_spectogram == False:
             _, layers = model.inference_forward(data.to(device))
@@ -188,8 +193,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    ground_truth_labels = syllable_to_phrase_labels(ground_truth_labels)
-    np.savez("files/labels.npy", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
+    ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
     # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
 
@@ -257,9 +262,12 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     #                         mean_colors_per_minispec=mean_colors_per_minispec, 
     #                         colors_per_timepoint=colors_per_timepoint)
 
-class AnalyzeSyntax():
-    def __init__(self):
-            pass
+class ComputerClusterPerformance():
+    def __init__(self, labels_path):
+
+        # takes a list of paths to files that contain the labels 
+        self.labels_paths = labels_path
+            
 
     def syllable_to_phrase_labels(self, arr, silence=-1):
         new_arr = np.array(arr, dtype=int)
@@ -332,7 +340,7 @@ class AnalyzeSyntax():
         # Pad the output array at the end to match the input array size
         output.append(data[-1])
 
-        return output
+        return np.array(output)
 
     def integer_to_letter(self, match):
         """Converts an integer match to a corresponding letter (1 -> A, 2 -> B, etc.)."""
@@ -378,3 +386,127 @@ class AnalyzeSyntax():
                 new_arr[i] = first_non_silence_label
 
         return new_arr
+        
+    def compute_vmeasure_score(self):
+        homogeneity_scores = []
+        completeness_scores = []
+        v_measure_scores = []
+
+        for path_index, path in enumerate(self.labels_paths):
+            f = np.load(path)
+            hdbscan_labels = f['hdbscan_labels']
+            ground_truth_labels = f['ground_truth_labels']
+
+            # Remove points marked as noise
+            remove_noise_index = np.where(hdbscan_labels == -1)[0]
+            hdbscan_labels = np.delete(hdbscan_labels, remove_noise_index)
+            ground_truth_labels = np.delete(ground_truth_labels, remove_noise_index)
+
+            # Convert to phrase labels
+            hdbscan_labels = self.majority_vote(hdbscan_labels)
+            ground_truth_labels = self.syllable_to_phrase_labels(arr=ground_truth_labels, silence=0)
+
+            # Compute scores
+            homogeneity = homogeneity_score(ground_truth_labels, hdbscan_labels)
+            completeness = completeness_score(ground_truth_labels, hdbscan_labels)
+            v_measure = v_measure_score(ground_truth_labels, hdbscan_labels)
+
+            # Append scores
+            homogeneity_scores.append(homogeneity)
+            completeness_scores.append(completeness)
+            v_measure_scores.append(v_measure)
+
+        # Calculate average and standard error
+        metrics = {
+            'Homogeneity': (np.mean(homogeneity_scores), np.std(homogeneity_scores, ddof=1) / np.sqrt(len(homogeneity_scores))),
+            'Completeness': (np.mean(completeness_scores), np.std(completeness_scores, ddof=1) / np.sqrt(len(completeness_scores))),
+            'V-measure': (np.mean(v_measure_scores), np.std(v_measure_scores, ddof=1) / np.sqrt(len(v_measure_scores)))
+        }
+
+        return metrics 
+
+    # def compute_f1_scores(self, plot=True):
+    #     all_scores = []  # Store F1 scores for each instance in each path
+
+    #     for path_index, path in enumerate(self.labels_paths):
+    #         f = np.load(path)
+    #         hdbscan_labels = f['hdbscan_labels']
+    #         ground_truth_labels = f['ground_truth_labels']
+
+    #         # Remove points marked as noise
+    #         remove_noise_index = np.where(hdbscan_labels == -1)[0]
+    #         hdbscan_labels = np.delete(hdbscan_labels, remove_noise_index)
+    #         ground_truth_labels = np.delete(ground_truth_labels, remove_noise_index)
+
+    #         # Convert to phrase labels and set hdbscan_labels equal to ground_truth_labels for comparison
+    #         hdbscan_labels = self.majority_vote(hdbscan_labels)
+    #         ground_truth_labels = self.syllable_to_phrase_labels(arr=ground_truth_labels, silence=0)
+    #         ground_truth_classes = np.unique(ground_truth_labels)
+
+    #         for c in ground_truth_classes:
+    #             class_index = np.where(ground_truth_labels == c)[0]
+    #             unique_elements, counts = np.unique(hdbscan_labels[class_index], return_counts=True)
+    #             total_number_of_elements = hdbscan_labels[class_index].shape[0]
+
+    #     if plot and all_scores:
+    #         # Convert scores and path indices to a DataFrame for plotting
+    #         scores_df = pd.DataFrame(all_scores, columns=['Path Index', 'Class', 'Precision', 'Recall', 'F1 Score', 'TP', 'FP', 'FN'])
+
+    #         # Simplify the DataFrame for basic plotting (ignoring 'Path Index' and contingency table values)
+    #         simplified_df = scores_df[['Class', 'F1 Score']].copy()
+    #         simplified_df['Class'] = simplified_df['Class'].astype(str)  # Ensure 'Class' is treated as categorical (string) data
+
+    #         plt.figure(figsize=(10, 6))
+    #         sns.barplot(x='Class', y='F1 Score', data=simplified_df)
+    #         plt.title('F1 Scores for Each Class')
+    #         plt.ylabel('F1 Score')
+    #         plt.xlabel('Class')
+    #         plt.tight_layout()
+
+    #         plt.savefig('f1_scores_per_class_plot.png')  # Save the figure as a PNG file
+    #         plt.show()  # Show the plot
+                
+    def compute_mutual_information_score():
+        pass
+
+
+
+def plot_metrics(metrics_list, model_names):
+    num_metrics = 3  # Homogeneity, Completeness, V-measure
+    num_models = len(metrics_list)
+    assert num_models == len(model_names), "Number of models and model names must match"
+
+    # Define a color palette with enough colors for each model
+    color_palette = plt.cm.viridis(np.linspace(0, 1, num_models))
+
+    group_width = 0.8  # Total width for a group of bars
+    bar_width = group_width / num_models  # Width of individual bar
+
+    # Positions of the groups
+    group_positions = np.arange(num_metrics)
+
+    plt.figure(figsize=(10, 6))
+
+    # Plot bars for each metric
+    for i, metric_name in enumerate(['Homogeneity', 'Completeness', 'V-measure']):
+        for j, metrics in enumerate(metrics_list):
+            mean = metrics[metric_name][0]
+            error = metrics[metric_name][1]
+            # Center bars within each group
+            position = group_positions[i] + (j - num_models / 2) * bar_width + bar_width / 2
+
+            # Use consistent colors for each model across metrics
+            plt.bar(position, mean, yerr=error, width=bar_width, color=color_palette[j],
+                    label=f'{metric_name} - {model_names[j]}' if i == 0 else "", capsize=5, align='center')
+
+    plt.xlabel('Metrics', fontsize=14)
+    plt.ylabel('Scores', fontsize=14)
+    plt.title('Comparison of Clustering Metrics Across Models', fontsize=16)
+
+    # Set the position and labels for each group
+    plt.xticks(group_positions, ['Homogeneity', 'Completeness', 'V-measure'])
+
+    plt.ylim(0, 1)  # Setting y-axis from 0 to 1
+    plt.legend(loc='upper left')
+    plt.tight_layout()
+    plt.show()

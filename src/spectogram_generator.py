@@ -52,52 +52,7 @@ class WavtoSpec:
             colormap = 'jet'
             # Normalize the numeric array to the [0, 1] range
             normalized_array = (filterSpec - np.min(filterSpec)) / (np.max(filterSpec) - np.min(filterSpec))
-            # Apply the colormap to the normalized array
-            # rgb_array = plt.cm.get_cmap(colormap)(normalized_array)
-
-            # # Read the WAV file
-            # samplerate, data = wavfile.read(file_path)
-
-            # # Calculate the length of the audio file in milliseconds
-            # length_in_ms = (data.shape[0] / samplerate) * 1000
-
-            # if length_in_ms < min_length_ms:
-            #     print(f"File {file_path} is below the length threshold and will be skipped.")
-            #     return  # Skip processing this file
-
-            # # High-pass filter (adjust the filtering frequency as necessary)
-            # b, a = ellip(5, 0.2, 40, 500/(samplerate/2), 'high')
-            # data = filtfilt(b, a, data)
-
-            # # Canary song analysis parameters
-            # NFFT = 1024  # Number of points in FFT
-            # step_size = 119  # Step size for overlap
-
-            # # Calculate the overlap in samples
-            # overlap_samples = NFFT - step_size
-
-            # # Use a Gaussian window
-            # window = windows.gaussian(NFFT, std=NFFT/8)
-
-            # # Compute the spectrogram with the Gaussian window
-            # f, t, Sxx = spectrogram(data, fs=samplerate, window=window, nperseg=NFFT, noverlap=overlap_samples)
-
-            # # Convert to dB
-            # Sxx_log = 10 * np.log10(Sxx)
-
-            # # Post-processing: Clipping and Normalization
-            # clipping_level = -2  # dB
-            # Sxx_log_clipped = np.clip(Sxx_log, a_min=clipping_level, a_max=None)
-            # Sxx_log_normalized = (Sxx_log_clipped - np.min(Sxx_log_clipped)) / (np.max(Sxx_log_clipped) - np.min(Sxx_log_clipped))
-
-            # # # Visualization (optional)
-            # # plt.imshow(Sxx_log_normalized, aspect='auto', origin='lower', extent=[t.min(), t.max(), f.min(), f.max()])
-            # # plt.title('Spectrogram')
-            # # plt.ylabel('Frequency [Hz]')
-            # # plt.xlabel('Time [sec]')
-            # # plt.colorbar(format='%+2.0f dB')
-            # # plt.show()
-
+            
             # Assuming label is an integer or float
             labels = np.full((normalized_array.shape[1],), 0)  # Adjust the label array as needed
 
@@ -110,6 +65,7 @@ class WavtoSpec:
 
             # Print out the path to the saved file
             print(f"Spectrogram saved to {spec_file_path}")
+            plt.close()
 
         except ValueError as e:
             print(f"Error reading {file_path}: {e}")
@@ -178,7 +134,7 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # Usage:
-# wav_to_spec = WavtoSpec('/home/george-vengrovski/Downloads/USA5199_14', '/home/george-vengrovski/Documents/projects/song_detection/data')
-# wav_to_spec.process_directory()
+wav_to_spec = WavtoSpec('/home/george-vengrovski/Documents/data/song_detector_test', '/home/george-vengrovski/Documents/data/temp')
+wav_to_spec.process_directory()
 # wav_to_spec.save_npz()
 # wav_to_spec.visualize_random_spectrogram()
