@@ -37,7 +37,7 @@ class Config:
 # ]
         
 configs = [
-    Config(data_root="/home/george-vengrovski/Documents/data/pretrain_song_detector_specs", train_dir="files/songdetector_train", test_dir="files/songdetector_test", n_clusters=1),
+    Config(data_root="/home/george-vengrovski/Documents/data/warble_spectograms", train_dir="files/warble_train", test_dir="files/warble_test", n_clusters=1),
     # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
     # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
 ]

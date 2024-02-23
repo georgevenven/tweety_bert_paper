@@ -96,7 +96,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
     data_loader_iter = iter(data_loader)
 
-    while len(ground_truth_labels_arr) * context < samples:
+    while total_samples < samples:
         try:
             # Retrieve the next batch
             data, _, ground_truth_label = next(data_loader_iter)
@@ -261,6 +261,156 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     #                         behavioralArr=behavioralArr, 
     #                         mean_colors_per_minispec=mean_colors_per_minispec, 
     #                         colors_per_timepoint=colors_per_timepoint)
+
+
+def sliding_window_umap(model, device, data_dir="test_llb16",
+                         remove_silences=False, samples=100, file_path='category_colors.pkl', 
+                         layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
+                         context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
+    predictions_arr = []
+    ground_truth_labels_arr = []
+    spec_arr = [] 
+
+    # Reset Figure
+    plt.figure(figsize=(8, 6))
+
+    # to allow sci notation 
+    samples = int(samples)
+    total_samples = 0
+
+    data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
+    data_loader_iter = iter(data_loader)
+
+    while total_samples < samples:
+        try:
+            # Retrieve the next batch
+            data, _, ground_truth_label = next(data_loader_iter)
+
+            # if smaller than context window, go to next song
+            if data.shape[1] < context:
+                continue 
+            # because network is made to work with batched data, we unsqueeze a dim and transpose the last two dims (usually handled by collate fn)
+            data = data.unsqueeze(0).permute(0,1,3,2)
+
+            # calculate the number of times a song 
+            num_times = data.shape[-1] // context
+            
+            # removing left over timebins that do not fit in context window 
+            shave_index = num_times * context
+            data = data[:,:,:,:shave_index]
+
+            batch, channel, freq, time_bins = data.shape 
+
+            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
+            data = data.permute(0,-1, 1, 2)
+            data = data.reshape(num_times, context, channel, freq)
+            data = data.permute(0,2,3,1)
+
+            # reshaping g truth labels to be consistent 
+            batch, time_bins, labels = ground_truth_label.shape
+
+            # shave g truth labels 
+            ground_truth_label = ground_truth_label.permute(0,2,1)
+            ground_truth_label = ground_truth_label[:,:,:shave_index]
+
+            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
+            ground_truth_label = ground_truth_label.permute(0,2,1)
+            ground_truth_label = ground_truth_label.reshape(num_times, context, labels)
+            
+        except StopIteration:
+            # if test set is exhausted, print the number of samples collected and stop the collection process
+            print(f"samples collected {len(ground_truth_labels_arr) * context}")
+            break
+
+        if raw_spectogram == False:
+            _, layers = model.inference_forward(data.to(device))
+
+            layer_output_dict = layers[layer_index]
+            output = layer_output_dict.get(dict_key, None)
+
+            if output is None:
+                print(f"Invalid key: {dict_key}. Skipping this batch.")
+                continue
+
+            batches, time_bins, features = output.shape 
+            # data shape [0] is the number of batches, 
+            predictions = output.reshape(batches, time_bins, features)
+            # combine the batches and number of samples per context window 
+            predictions = predictions.flatten(0,1)
+            predictions_arr.append(predictions.detach().cpu().numpy())
+
+        # remove channel dimension 
+        data = data.squeeze(1)
+        spec = data
+
+        # set the features (freq axis to be the last dimension)
+        spec = spec.permute(0, 2, 1)
+        # combine batches and timebins
+        spec = spec.flatten(0, 1)
+
+        ground_truth_label = ground_truth_label.flatten(0, 1)
+
+        ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
+
+        spec_arr.append(spec.cpu().numpy())
+        ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
+
+        print(spec.shape)
+        print(spec.shape[0])
+        
+        total_samples += spec.shape[0]
+
+    # convert the list of batch * samples * features to samples * features 
+    ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
+    spec_arr = np.concatenate(spec_arr, axis=0)
+
+    print(spec_arr.shape)
+
+    # if not raw_spectogram:
+    #     predictions = np.concatenate(predictions_arr, axis=0)
+    # else:
+    #     predictions = spec_arr
+
+    # # razor off any extra datapoints 
+    # if samples > len(predictions):
+    #     samples = len(predictions)
+    # else:
+    #     predictions = predictions[:samples]
+    #     ground_truth_labels = ground_truth_labels[:samples]
+
+    # # Fit the UMAP reducer       
+    # reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
+
+    # embedding_outputs = reducer.fit_transform(predictions)
+    # hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+    # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    # np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
+
+    # # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+
+    # cmap = glasbey.extend_palette(["#000000"], palette_size=30)
+    # cmap = mcolors.ListedColormap(cmap)    
+
+    # fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+
+    # axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+    # axes[0].set_title("HDBSCAN")
+
+    # # Plot with the original color scheme
+    # axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
+    # axes[1].set_title("Original Coloring")
+
+    # if raw_spectogram:
+    #     plt.title(f'UMAP of Spectogram', fontsize=14)
+    # else:
+    #     plt.title(f'UMAP Projection of (Layer: {layer_index}, Key: {dict_key})', fontsize=14)
+
+    # # Save the plot if save_dir is specified
+    # if save_dir:
+    #     plt.savefig(save_dir, format='png')
+    # else:
+    #     plt.show()
+
 
 class ComputerClusterPerformance():
     def __init__(self, labels_path):
@@ -468,8 +618,6 @@ class ComputerClusterPerformance():
                 
     def compute_mutual_information_score():
         pass
-
-
 
 def plot_metrics(metrics_list, model_names):
     num_metrics = 3  # Homogeneity, Completeness, V-measure
