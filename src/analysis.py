@@ -263,10 +263,26 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     #                         colors_per_timepoint=colors_per_timepoint)
 
 
+def reshape_with_stride(predictions, window_size, stride):
+    # Calculate the number of windows that fit into the samples with the given stride
+    samples, features = predictions.shape
+    number_of_windows = (samples - window_size) // stride + 1
+
+    # Initialize arrays to store the reshaped data
+    reshaped_predictions = np.zeros((number_of_windows, window_size * features))
+
+    # Fill the new arrays with data from the original arrays, using the stride
+    for i in range(number_of_windows):
+        start_index = i * stride
+        end_index = start_index + window_size
+        reshaped_predictions[i] = predictions[start_index:end_index].flatten()
+
+    return reshaped_predictions
+
 def sliding_window_umap(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
                          layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
-                         context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
+                         context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable", window_size=100, stride=1):
     predictions_arr = []
     ground_truth_labels_arr = []
     spec_arr = [] 
@@ -354,9 +370,6 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
 
         spec_arr.append(spec.cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
-
-        print(spec.shape)
-        print(spec.shape[0])
         
         total_samples += spec.shape[0]
 
@@ -364,53 +377,60 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
     spec_arr = np.concatenate(spec_arr, axis=0)
 
-    print(spec_arr.shape)
+    if not raw_spectogram:
+        predictions = np.concatenate(predictions_arr, axis=0)
+    else:
+        predictions = spec_arr
 
-    # if not raw_spectogram:
-    #     predictions = np.concatenate(predictions_arr, axis=0)
-    # else:
-    #     predictions = spec_arr
+    # razor off any extra datapoints 
+    if samples > len(predictions):
+        samples = len(predictions)
+    else:
+        predictions = predictions[:samples]
+        ground_truth_labels = ground_truth_labels[:samples]
 
-    # # razor off any extra datapoints 
-    # if samples > len(predictions):
-    #     samples = len(predictions)
-    # else:
-    #     predictions = predictions[:samples]
-    #     ground_truth_labels = ground_truth_labels[:samples]
+    # samples, features = predictions.shape
 
-    # # Fit the UMAP reducer       
-    # reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
+    # if (samples % window_size) != 0:
+    #     remainder = samples % window_size
+    #     predictions = predictions[:samples-remainder]
+    #     ground_truth_labels = ground_truth_labels[:samples-remainder]
 
-    # embedding_outputs = reducer.fit_transform(predictions)
-    # hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    # predictions = predictions.reshape(samples // window_size, window_size * features)
+        
+    predictions = reshape_with_stride(predictions, window_size, stride)
+
+    # Fit the UMAP reducer       
+    reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
+
+    embedding_outputs = reducer.fit_transform(predictions)
+    hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+    ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     # np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    # # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+    # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+    
+    # Assuming 'glasbey' is a predefined object with a method 'extend_palette'
+    cmap = glasbey.extend_palette(["#000000"], palette_size=30)
+    cmap = mcolors.ListedColormap(cmap)    
 
-    # cmap = glasbey.extend_palette(["#000000"], palette_size=30)
-    # cmap = mcolors.ListedColormap(cmap)    
+    fig, ax = plt.subplots(figsize=(8, 6))  # Create a figure and a single subplot
 
-    # fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+    # Scatter plot with HDBSCAN labels
+    ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=0.1, cmap=cmap)
+    ax.set_title("HDBSCAN")
 
-    # axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
-    # axes[0].set_title("HDBSCAN")
+    # Adjust title based on 'raw_spectogram' flag
+    if raw_spectogram:
+        plt.title(f'UMAP of Spectogram', fontsize=14)
+    else:
+        plt.title(f'UMAP Projection of (Layer: {layer_index}, Key: {dict_key})', fontsize=14)
 
-    # # Plot with the original color scheme
-    # axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
-    # axes[1].set_title("Original Coloring")
-
-    # if raw_spectogram:
-    #     plt.title(f'UMAP of Spectogram', fontsize=14)
-    # else:
-    #     plt.title(f'UMAP Projection of (Layer: {layer_index}, Key: {dict_key})', fontsize=14)
-
-    # # Save the plot if save_dir is specified
-    # if save_dir:
-    #     plt.savefig(save_dir, format='png')
-    # else:
-    #     plt.show()
-
+    # Save the plot if 'save_dir' is specified, otherwise display it
+    if save_dir:
+        plt.savefig(save_dir, format='png')
+    else:
+        plt.show()
 
 class ComputerClusterPerformance():
     def __init__(self, labels_path):

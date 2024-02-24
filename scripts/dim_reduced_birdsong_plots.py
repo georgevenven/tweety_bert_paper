@@ -47,14 +47,12 @@ from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metr
 
 # plot_metrics(model_list, model_names)
 
-
-
 sliding_window_umap(
 model=model, 
 device=device, 
 data_dir="files/warble_test",
 remove_silences=False,  # Using new config parameter``
-samples=5e3, ## Excessive to collect all the songs in test set 
+samples=5e4, ## Excessive to collect all the songs in test set 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=1, 
 dict_key="attention_output", 
@@ -62,7 +60,29 @@ time_bins_per_umap_point=1,
 context=1000,  # Using new config parameter98
 raw_spectogram=True,
 save_dict_for_analysis = True,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/raw_umap.png",
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/UMAP-windowed-test-250.png",
 compute_svm= False,
-color_scheme = "Label"
+color_scheme = "Label",
+window_size=250
 )
+
+sliding_window_umap(
+model=model, 
+device=device, 
+data_dir="files/warble_test",
+remove_silences=False,  # Using new config parameter``
+samples=5e4, ## Excessive to collect all the songs in test set 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=1, 
+dict_key="attention_output", 
+time_bins_per_umap_point=1, 
+context=1000,  # Using new config parameter98
+raw_spectogram=False,
+save_dict_for_analysis = True,
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/TweetyBERT-windowed-test-250.png",
+compute_svm= False,
+color_scheme = "Label",
+window_size=250
+)
+
+
