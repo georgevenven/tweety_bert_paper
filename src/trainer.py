@@ -103,23 +103,10 @@ class ModelTrainer:
 
         plt.tight_layout()
 
-    def loss(self, model, output, label, mask, spec):
-        # train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim = model.mse_loss(output, label, mask, spec)
-        if self.loss_function == "cross_entropy":
-            train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim = model.cross_entropy_loss(output, label, mask)
-            return train_loss, masked_seq_acc, unmasked_seq_acc, predicted_probs, normal_dist, energy, csim
-
-        elif self.loss_function == "mse_loss":
-            combined_loss, masked_loss, unmasked_loss, mse_loss = model.mse_loss(output, mask, spec)
-            return combined_loss, masked_loss, unmasked_loss, mse_loss
-
-        else:
-            raise Exception("Error: incorrect loss function has been chosen")
-
     def visualize_mse(self, output, mask, spec, step):
         mask_bar_height = 15
         # Compute loss
-        _, _, _, loss_grid = self.loss(output=output, mask=mask, spec=spec, label=None, model=self.model)
+        _, _, _, loss_grid = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
         loss_grid = loss_grid.cpu().numpy()  # Assuming loss_grid has shape [1, seq_len, 196]
         output = output.cpu().numpy()  # Assuming output has shape [1, seq_len, 196]
 
@@ -180,10 +167,7 @@ class ModelTrainer:
             # Forward pass through the model
             output, mask, _, all_outputs = self.model.train_forward(spec)
 
-            if self.loss_function == "cross_entropy":
-                self.visualize_cross_entropy(output=output, label=label, mask=mask, spec=spec, path_to_prototype_clusters=self.path_to_prototype_clusters, step=step)
-            elif self.loss_function == "mse_loss":
-                self.visualize_mse(output=output, mask=mask, spec=spec, step=step)
+            self.visualize_mse(output=output, mask=mask, spec=spec, step=step)
 
             # Create a large canvas of intermediate outputs
             self.create_large_canvas(all_outputs)
@@ -196,10 +180,10 @@ class ModelTrainer:
         self.model.eval()
         with torch.no_grad():
             try:
-                spec, label, _ = next(test_iter)
+                spec, label = next(test_iter)
             except StopIteration:
                 test_iter = iter(self.test_loader)
-                spec, label, _ = next(test_iter)
+                spec, label = next(test_iter)
 
             # Fetch the next batch from the validation set
             spec = spec.to(self.device)
@@ -212,7 +196,7 @@ class ModelTrainer:
             output, mask, *rest = self.model.train_forward(spec)
 
             # Calculate loss and accuracy
-            val_loss, masked_seq_acc, unmasked_seq_acc, *rest = self.loss(self.model, output, label, mask, spec)
+            val_loss, masked_seq_acc, unmasked_seq_acc, *rest = self.model.mse_loss(predictions=output, spec=spec , mask=mask)
 
             # Convert to scalar values
             avg_val_loss = val_loss.item()
@@ -247,22 +231,20 @@ class ModelTrainer:
 
         while step < self.max_steps:
             try:
-                spec, label, ground_truth = next(train_iter)
+                spec, ground_truth = next(train_iter)
             except StopIteration:
                 train_iter = iter(self.train_loader)
-                spec, label, ground_truth = next(train_iter)
+                spec, ground_truth = next(train_iter)
 
             spec = spec.to(self.device)
-            label = label.to(self.device)
             ground_truth = ground_truth.to(self.device)
-
 
             self.model.train()  # Explicitly set the model to training mode
 
             output, mask, *rest = self.model.train_forward(spec)
 
             # There can be a variable number of variables returned
-            loss, *rest = self.loss(self.model, output, label, mask, spec)
+            loss, *rest = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
 
             # Backpropagation and optimization
             self.optimizer.zero_grad()

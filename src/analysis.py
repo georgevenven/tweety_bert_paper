@@ -99,7 +99,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     while total_samples < samples:
         try:
             # Retrieve the next batch
-            data, _, ground_truth_label = next(data_loader_iter)
+            data, ground_truth_label = next(data_loader_iter)
 
             # if smaller than context window, go to next song
             if data.shape[1] < context:
@@ -300,7 +300,7 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
     while total_samples < samples:
         try:
             # Retrieve the next batch
-            data, _, ground_truth_label = next(data_loader_iter)
+            data, ground_truth_label = next(data_loader_iter)
 
             # if smaller than context window, go to next song
             if data.shape[1] < context:

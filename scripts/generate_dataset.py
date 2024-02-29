@@ -9,7 +9,7 @@ os.chdir(project_root)
 
 sys.path.append("src")
 
-from psuedo_label_generator import SpectrogramProcessor
+from spectogram_processor import SpectrogramProcessor
 
 # Define a configuration class or use a dictionary
 class Config:
@@ -18,28 +18,9 @@ class Config:
         self.train_dir = train_dir
         self.test_dir = test_dir
         self.n_clusters = n_clusters
-
-# # Load configurations from a file or define them in a list
-# configs = [
-#     Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_50", "files/llb3_test_50", 50),
-#     Config("/home/george-vengrovski/Documents/data/llb3_data_matrices", "files/llb3_train_500", "files/llb3_test_500", 500),
-#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_50", "files/llb11_test_50", 50),
-#     Config("/home/george-vengrovski/Documents/data/llb11_data_matrices", "files/llb11_train_500", "files/llb11_test_500", 500),
-#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_50", "files/llb16_test_50", 50),
-#     Config("/home/george-vengrovski/Documents/data/llb16_data_matrices", "files/llb16_train_500", "files/llb16_test_500", 500)
-# ]
-        
-# Load configurations from a file or define them in a list
-# configs = [
-#     # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train", test_dir="files/llb3_test", n_clusters=50),
-#     # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
-#     # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
-# ]
         
 configs = [
-    Config(data_root="/home/george-vengrovski/Documents/data/warble_spectograms", train_dir="files/warble_train", test_dir="files/warble_test", n_clusters=1),
-    # Config(data_root="/home/george-vengrovski/Documents/data/llb11_data_matrices", train_dir="files/llb11_train", test_dir="files/llb11_test", n_clusters=50),
-    # Config(data_root="/home/george-vengrovski/Documents/data/llb3_data_matrices", train_dir="files/llb3_train_50", test_dir="files/llb3_test_50", n_clusters=50)
+    Config(data_root="/media/george-vengrovski/disk2/canary_temp/canary_spec", train_dir="files/canary_no_clip_full_freq_train", test_dir="files/canary_no_clip_full_freq_test", n_clusters=30)
 ]
 
 # Iterate over the configurations and process
@@ -50,7 +31,3 @@ for config in configs:
     processor.clear_directory(config.test_dir)
 
     processor.generate_train_test()
-    processor.generate_embedding(samples=100)
-    closest_features_path = f"files/{config.data_root.split('/')[-1]}_centroid_vectors_{str(config.n_clusters)}.npy"
-    processor.find_closest_features_to_centroids(save_path=closest_features_path)
-    processor.generate_train_test_labels()
