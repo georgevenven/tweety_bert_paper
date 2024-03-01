@@ -14,6 +14,29 @@ import seaborn as sns
 import pandas as pd
 from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
 
+def average_colors_per_sample(ground_truth_labels, cmap):
+    """
+    Averages the colors for each prediction point based on the ground truth labels.
+    
+    Parameters:
+    - ground_truth_labels: numpy array of shape (samples, labels_per_sample)
+    - cmap: matplotlib.colors.ListedColormap object
+
+    Returns:
+    - averaged_colors: numpy array of shape (samples, 3) containing the averaged RGB colors
+    """
+    # Initialize an array to hold the averaged colors
+    averaged_colors = np.zeros((ground_truth_labels.shape[0], 3))
+
+    for i, labels in enumerate(ground_truth_labels):
+        # Retrieve the colors for each label using the colormap
+        colors = cmap(labels / np.max(ground_truth_labels))[:, :3]  # Normalize labels and exclude alpha channel
+
+        # Average the colors for the current sample
+        averaged_colors[i] = np.mean(colors, axis=0)
+
+    return averaged_colors
+
 def syllable_to_phrase_labels(arr, silence=-1):
     new_arr = np.array(arr, dtype=int)
     current_syllable = None
@@ -43,7 +66,7 @@ def syllable_to_phrase_labels(arr, silence=-1):
     return new_arr
 
 def load_data( data_dir, context=1000, psuedo_labels_generated=True):
-    dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=psuedo_labels_generated)
+    dataset = SongDataSet_Image(data_dir, num_classes=196)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
@@ -263,21 +286,34 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     #                         colors_per_timepoint=colors_per_timepoint)
 
 
-def reshape_with_stride(predictions, window_size, stride):
-    # Calculate the number of windows that fit into the samples with the given stride
-    samples, features = predictions.shape
-    number_of_windows = (samples - window_size) // stride + 1
+def apply_windowing(arr, window_size, stride, flatten_predictions=False):
+    """
+    Apply windowing to the input array.
 
-    # Initialize arrays to store the reshaped data
-    reshaped_predictions = np.zeros((number_of_windows, window_size * features))
+    Parameters:
+    - arr: The input array to window, expected shape (num_samples, features) for predictions and (num_samples,) for labels.
+    - window_size: The size of each window.
+    - stride: The stride between windows.
+    - flatten_predictions: A boolean indicating whether to flatten the windowed predictions.
 
-    # Fill the new arrays with data from the original arrays, using the stride
-    for i in range(number_of_windows):
-        start_index = i * stride
-        end_index = start_index + window_size
-        reshaped_predictions[i] = predictions[start_index:end_index].flatten()
+    Returns:
+    - windowed_arr: The windowed version of the input array.
+    """
+    num_samples, features = arr.shape if len(arr.shape) > 1 else (arr.shape[0], 1)
+    num_windows = (num_samples - window_size) // stride + 1
+    windowed_arr = np.lib.stride_tricks.as_strided(
+        arr,
+        shape=(num_windows, window_size, features),
+        strides=(arr.strides[0] * stride, arr.strides[0], arr.strides[-1]),
+        writeable=False
+    )
 
-    return reshaped_predictions
+    if flatten_predictions and features > 1:
+        # Flatten each window for predictions
+        windowed_arr = windowed_arr.reshape(num_windows, -1)
+    
+    return windowed_arr
+
 
 def sliding_window_umap(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
@@ -365,7 +401,6 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
         spec = spec.flatten(0, 1)
 
         ground_truth_label = ground_truth_label.flatten(0, 1)
-
         ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
 
         spec_arr.append(spec.cpu().numpy())
@@ -389,36 +424,35 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
         predictions = predictions[:samples]
         ground_truth_labels = ground_truth_labels[:samples]
 
-    # samples, features = predictions.shape
+    # Ensure predictions are in the correct shape (num_samples, features) before windowing
+    predictions = apply_windowing(predictions, window_size, stride=stride, flatten_predictions=True)
+    ground_truth_labels = apply_windowing(ground_truth_labels.reshape(-1, 1), window_size, stride=stride, flatten_predictions=False)
 
-    # if (samples % window_size) != 0:
-    #     remainder = samples % window_size
-    #     predictions = predictions[:samples-remainder]
-    #     ground_truth_labels = ground_truth_labels[:samples-remainder]
+    ground_truth_labels = ground_truth_labels.squeeze()
 
-    # predictions = predictions.reshape(samples // window_size, window_size * features)
-        
-    predictions = reshape_with_stride(predictions, window_size, stride)
 
+    print(ground_truth_labels.shape)
+    
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
-    # np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
-
-    # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
     
     # Assuming 'glasbey' is a predefined object with a method 'extend_palette'
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
 
-    fig, ax = plt.subplots(figsize=(8, 6))  # Create a figure and a single subplot
+    ground_truth_labels = average_colors_per_sample(ground_truth_labels, cmap)
 
-    # Scatter plot with HDBSCAN labels
-    ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=0.1, cmap=cmap)
-    ax.set_title("HDBSCAN")
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+
+    axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+    axes[0].set_title("HDBSCAN")
+
+    # Plot with the original color scheme
+    axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
+    axes[1].set_title("Original Coloring")
 
     # Adjust title based on 'raw_spectogram' flag
     if raw_spectogram:

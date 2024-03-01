@@ -181,7 +181,7 @@ class TweetyBERT(nn.Module):
         self.label_embedding = nn.Embedding(num_labels, embedding_dim)
 
         # transformer
-        self.transformerProjection = nn.Linear(128, d_transformer)
+        self.transformerProjection = nn.Linear(64, d_transformer)
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 

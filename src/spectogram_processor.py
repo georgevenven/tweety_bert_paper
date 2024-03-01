@@ -33,28 +33,39 @@ class SpectrogramProcessor:
         if not os.path.exists(self.test_dir):
             os.mkdir(self.test_dir)
 
-    def generate_train_test(self):
+    def generate_train_test(self, file_min_size=1e3, file_limit_size=1e4):
         files = os.listdir(self.data_root)
-        for i, file in tqdm(enumerate(files), total=len(files), desc="Processing Files"):
+        for file in tqdm(files, desc="Processing Files"):
             if file.endswith(".npz"):
                 try:
                     f = np.load(os.path.join(self.data_root, file), allow_pickle=True)
-                    spectogram = f['s']
-                    spectogram[np.isnan(spectogram)] = 0
+                    spectrogram = f['s']
+                    spectrogram[np.isnan(spectrogram)] = 0
 
                     if 'labels' in f:
-                        f_dict = {'s': spectogram, 'labels': f['labels']}
+                        labels = f['labels']
                     else:
-                        f_dict = {'s': spectogram}
+                        labels = None
 
-                    segment_filename = file
+                    num_segments = max(1, int(np.ceil(spectrogram.shape[1] / file_limit_size)))
+                    for segment_index in range(num_segments):
+                        start = int(segment_index * file_limit_size)  # Ensure start is an integer
+                        end = int(min((segment_index + 1) * file_limit_size, spectrogram.shape[1]))  # Ensure end is an integer
+                        
+                        if (end - start) < file_min_size:
+                            continue  # Skip segments smaller than the minimum size
 
-                    # Decide where to save the segmented file
-                    if np.random.uniform() < self.train_prop:
-                        save_path = os.path.join(self.train_dir, segment_filename)
-                    else:
-                        save_path = os.path.join(self.test_dir, segment_filename)
+                        segment_spectrogram = spectrogram[:, start:end]
+                        if labels is not None:
+                            segment_labels = labels[start:end]  # Assuming labels can be indexed in the same way
+                            f_dict = {'s': segment_spectrogram, 'labels': segment_labels}
+                        else:
+                            f_dict = {'s': segment_spectrogram}
 
-                    np.savez(save_path, **f_dict)
-                except:
-                    continue
+                        # Generate a unique filename for each segment
+                        segment_filename = f"{os.path.splitext(file)[0]}_segment{segment_index}{os.path.splitext(file)[1]}"
+                        save_path = os.path.join(self.train_dir if np.random.uniform() < self.train_prop else self.test_dir, segment_filename)
+                        
+                        np.savez(save_path, **f_dict)
+                except Exception as e:
+                    print(f"Error processing {file}: {e}")

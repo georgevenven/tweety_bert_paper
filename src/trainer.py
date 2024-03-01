@@ -48,14 +48,6 @@ class ModelTrainer:
         if not os.path.exists(self.predictions_subfolder_path):
             os.makedirs(self.predictions_subfolder_path)
 
-        if loss_function == None:
-            self.loss_function = 'cross_entropy'
-        else:
-            self.loss_function = loss_function
-
-        if path_to_prototype_clusters is not None:
-            self.path_to_prototype_clusters = path_to_prototype_clusters
-
     def sum_squared_weights(self):
         sum_of_squares = sum(torch.sum(p ** 2) for p in self.model.parameters())
         return sum_of_squares   
@@ -146,7 +138,8 @@ class ModelTrainer:
         self._add_mask_overlay(axs[2], mask_np[0], loss_grid[0], mask_bar_height)
 
         # Save the figure
-        plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.eps'), format="eps", dpi=300)
+        # plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.eps'), format="eps", dpi=300)
+        plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.png'), format="png")
         plt.close(fig)
 
     def _add_mask_overlay(self, axis, mask, data, mask_bar_height):
@@ -173,7 +166,8 @@ class ModelTrainer:
             self.create_large_canvas(all_outputs)
 
             # Save the large canvas
-            plt.savefig(os.path.join(self.predictions_subfolder_path, f'Intermediate Outputs_{step}.eps'), format="eps", dpi=300)
+            # plt.savefig(os.path.join(self.predictions_subfolder_path, f'Intermediate Outputs_{step}.eps'), format="eps", dpi=300)
+            plt.savefig(os.path.join(self.predictions_subfolder_path, f'Intermediate Outputs_{step}.png'), format="png")
             plt.close()
                 
     def validate_model(self, step, test_iter):
@@ -309,38 +303,25 @@ class ModelTrainer:
             step += 1
 
 
-    def plot_results(self, save_plot=False, config=None, smoothing_window=100):
+    def plot_results(self, save_plot=True, config=None, smoothing_window=100):
         # Calculate smoothed curves for the metrics
         smoothed_training_loss = self.moving_average(self.loss_list, smoothing_window)
         smoothed_validation_loss = self.moving_average(self.val_loss_list, smoothing_window)
-        smoothed_masked_seq_acc = self.moving_average(self.masked_sequence_accuracy_list, smoothing_window)
-        smoothed_unmasked_seq_acc = self.moving_average(self.unmasked_sequence_accuracy_list, smoothing_window)
-        smoothed_val_masked_seq_acc = self.moving_average(self.val_masked_sequence_accuracy_list, smoothing_window)
-        smoothed_val_unmasked_seq_acc = self.moving_average(self.val_unmasked_sequence_accuracy_list, smoothing_window)
 
-        plt.figure(figsize=(24, 6))
+        plt.figure(figsize=(16, 6))  # Adjusted the figure size
 
         # Plot 1: Training and Validation Loss
-        plt.subplot(1, 3, 1)
+        plt.subplot(1, 2, 1)  # Adjusted for 2 plots instead of 3
         plt.plot(smoothed_training_loss, label='Smoothed Training Loss')
         plt.plot(smoothed_validation_loss, label='Smoothed Validation Loss')
         plt.legend()
         plt.title('Smoothed Training and Validation Loss')
 
         # Plot 2: Sum of Squared Weights per Step
-        plt.subplot(1, 3, 2)
+        plt.subplot(1, 2, 2)  # Adjusted for 2 plots instead of 3
         plt.plot(self.sum_squared_weights_list, color='red', label='Sum of Squared Weights')
         plt.legend()
         plt.title('Sum of Squared Weights per Step')
-
-        # Plot 3: Training and Validation Sequence Accuracy
-        plt.subplot(1, 3, 3)
-        plt.plot(smoothed_masked_seq_acc, label='Smoothed Training Masked Sequence Accuracy')
-        plt.plot(smoothed_unmasked_seq_acc, label='Smoothed Training Unmasked Sequence Accuracy')
-        plt.plot(smoothed_val_masked_seq_acc, linestyle='dashed', label='Smoothed Validation Masked Sequence Accuracy')
-        plt.plot(smoothed_val_unmasked_seq_acc, linestyle='dashed', label='Smoothed Validation Unmasked Sequence Accuracy')
-        plt.legend()
-        plt.title('Smoothed Training and Validation Sequence Accuracy')
 
         plt.tight_layout()
         
@@ -353,13 +334,9 @@ class ModelTrainer:
 
         # Prepare training statistics dictionary
         training_stats = {
-            'smoothed_training_loss': smoothed_training_loss,
-            'smoothed_validation_loss': smoothed_validation_loss,
-            'smoothed_masked_seq_acc': smoothed_masked_seq_acc,
-            'smoothed_unmasked_seq_acc': smoothed_unmasked_seq_acc,
-            'smoothed_val_masked_seq_acc': smoothed_val_masked_seq_acc,
-            'smoothed_val_unmasked_seq_acc': smoothed_val_unmasked_seq_acc,
-            'sum_squared_weights': self.sum_squared_weights_list
+            'smoothed_training_loss': smoothed_training_loss[-1] if smoothed_training_loss else None,
+            'smoothed_validation_loss': smoothed_validation_loss[-1] if smoothed_validation_loss else None,
+            'sum_squared_weights': self.sum_squared_weights_list[-1] if self.sum_squared_weights_list else None
         }
 
         # Save the training statistics as JSON

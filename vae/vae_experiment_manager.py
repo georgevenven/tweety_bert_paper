@@ -64,13 +64,13 @@ class ExperimentRunner:
             json.dump(config, f)
             
         # Data Loading
-        collate_fn = CollateFunction(segment_length=config['window_size'])
-        train_dataset = SongDataSet_Image(config['train_dir'], num_classes=1, remove_silences=config['remove_silences'])
-        test_dataset = SongDataSet_Image(config['test_dir'], num_classes=1, remove_silences=config['remove_silences'])
+        collate_fn = CollateFunction(segment_length=config['input_width'])
+        train_dataset = SongDataSet_Image(config['train_dir'], num_classes=1)
+        test_dataset = SongDataSet_Image(config['test_dir'], num_classes=1)
         train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
         test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
         
-        model = VariationalAutoencoder(config["latent_dims"], config["variational_beta"], input_height=196, input_width=100).to(self.device)
+        model = VariationalAutoencoder(config["latent_dims"], config["variational_beta"], input_height=config["input_height"], input_width=config["input_width"]).to(self.device)
 
         detailed_count_parameters(model)
         
@@ -115,7 +115,7 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 # Define configurations
 configurations = [
-        {"experiment_name": "VAE-test-1", "latent_dims": 32, "variational_beta": 1, "window_size": 100, "train_dir": "files/llb3_train", "test_dir": "files/llb3_test", "batch_size": 48, "learning_rate": 3e-4, "max_steps": 25e3, "eval_interval": 250, "save_interval": 1000, "remove_silences": False, "early_stopping": True, "patience": 4, "trailing_avg_window":200}
+        {"experiment_name": "VAE-Bungie-Rawer-Specs", "latent_dims": 32, "variational_beta": 1, "input_width": 100,"input_height": 513,  "train_dir": "files/combined_cornell_budgie_train", "test_dir": "files/combined_cornell_budgie_test", "batch_size": 48, "learning_rate": 3e-4, "max_steps": 25e3, "eval_interval": 250, "save_interval": 1000, "remove_silences": False, "early_stopping": True, "patience": 4, "trailing_avg_window":200}
 ]
 
 for i, config in enumerate(configurations):

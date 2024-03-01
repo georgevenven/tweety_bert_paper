@@ -85,14 +85,14 @@ class ModelTrainer:
         self.model.eval()
         with torch.no_grad():
             try:
-                spec, label, _ = next(test_iter)
+                spec, ground_truth = next(test_iter)
             except StopIteration:
                 test_iter = iter(self.test_loader)
-                spec, label, _ = next(test_iter)
+                spec, ground_truth = next(test_iter)
 
             # Fetch the next batch from the validation set
             spec = spec.to(self.device)
-            label = label.to(self.device)
+            ground_truth = ground_truth.to(self.device)
 
             x_recon, latent_mu, latent_logvar = self.model.forward(spec)
             # There can be a variable number of variables returned
@@ -130,13 +130,12 @@ class ModelTrainer:
 
         while step < self.max_steps:
             try:
-                spec, label, ground_truth = next(train_iter)
+                spec, ground_truth = next(train_iter)
             except StopIteration:
                 train_iter = iter(self.train_loader)
-                spec, label, ground_truth = next(train_iter)
+                spec, ground_truth = next(train_iter)
 
             spec = spec.to(self.device)
-            label = label.to(self.device)
             ground_truth = ground_truth.to(self.device)
 
 

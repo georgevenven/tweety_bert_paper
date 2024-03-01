@@ -1,3 +1,9 @@
+import sys
+import os
+
+sys.path.append("src")
+os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -42,7 +48,7 @@ def syllable_to_phrase_labels(arr, silence=-1):
     return new_arr
 
 def load_data( data_dir, context=1000, psuedo_labels_generated=True):
-    dataset = SongDataSet_Image(data_dir, num_classes=196, remove_silences=False, psuedo_labels_generated=psuedo_labels_generated)
+    dataset = SongDataSet_Image(data_dir, num_classes=196)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
@@ -76,6 +82,29 @@ def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=1000):
     print(np.unique(labels))
 
     return labels
+
+def average_colors_per_sample(ground_truth_labels, cmap):
+    """
+    Averages the colors for each prediction point based on the ground truth labels.
+    
+    Parameters:
+    - ground_truth_labels: numpy array of shape (samples, labels_per_sample)
+    - cmap: matplotlib.colors.ListedColormap object
+
+    Returns:
+    - averaged_colors: numpy array of shape (samples, 3) containing the averaged RGB colors
+    """
+    # Initialize an array to hold the averaged colors
+    averaged_colors = np.zeros((ground_truth_labels.shape[0], 3))
+
+    for i, labels in enumerate(ground_truth_labels):
+        # Retrieve the colors for each label using the colormap
+        colors = cmap(labels / np.max(ground_truth_labels))[:, :3]  # Normalize labels and exclude alpha channel
+
+        # Average the colors for the current sample
+        averaged_colors[i] = np.mean(colors, axis=0)
+
+    return averaged_colors
 
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
@@ -142,13 +171,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             _, output, _ = model.forward(data.to(device))
 
             print(output.shape)
-
-            batches, time_bins, features = output.shape 
-            # data shape [0] is the number of batches, 
-            predictions = output.reshape(batches, time_bins, features)
-            # combine the batches and number of samples per context window 
-            predictions = predictions.flatten(0,1)
-            predictions_arr.append(predictions.detach().cpu().numpy())
+            predictions_arr.append(output.detach().cpu().numpy())
 
         # remove channel dimension 
         data = data.squeeze(1)
@@ -158,8 +181,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         spec = spec.permute(0, 2, 1)
         # combine batches and timebins
         spec = spec.flatten(0, 1)
-
-        ground_truth_label = ground_truth_label.flatten(0, 1)
 
         ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
 
@@ -184,18 +205,24 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         predictions = predictions[:samples]
         ground_truth_labels = ground_truth_labels[:samples]
 
+    print(predictions.shape) 
+    print(ground_truth_labels.shape)
+
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
-    ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
-    np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+
+    # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
+
+    ground_truth_labels = average_colors_per_sample(ground_truth_labels, cmap)
+
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
 
@@ -219,31 +246,41 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
 ########################################################3
 from vae import VariationalAutoencoder
+import json
 
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# File paths
 config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-test-1/config.json"
 weight_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-test-1/saved_weights/model_step_2000.pth"
 
-# load config file
-# load weights 
+# Load config file
+with open(config_path, 'r') as config_file:
+    config = json.load(config_file)
+    # Initialize your model (ensure this matches the architecture expected by the weights)
+    # model = VariationalAutoencoder(latent_dims=config["latent_dims"], variational_beta=config["variational_beta"], input_height=config["input_height"], input_width=config["input_width"])  # Add any required arguments for your model initialization here
+    model = VariationalAutoencoder(latent_dims=config["latent_dims"], variational_beta=config["variational_beta"], input_height=196, input_width=100)  # Add any required arguments for your model initialization here
+    model = model.to(device)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-model = model.to(device)
+# Load weights
+model.load_state_dict(torch.load(weight_path, map_location=device))
 
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="files/canary_no_clip_full_freq_test",
+data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test",
 remove_silences=False,  # Using new config parameter``
-samples=5e4, ## Excessive to collect all the songs in test set 
+samples=2e7, ## Excessive to collect all the songs in test set 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=1, 
-dict_key="attention_output", 
+layer_index="Mu Latent Vars", 
+dict_key="VAE", 
 time_bins_per_umap_point=1, 
-context=1000,  # Using new config parameter98
+context=100,  # Using new config parameter98
 raw_spectogram=False,
 save_dict_for_analysis = True,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/tweety_bert.png",
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/vae_umap_100_lbb3.png",
 compute_svm= False,
 color_scheme = "Label"
 )

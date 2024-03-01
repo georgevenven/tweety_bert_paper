@@ -31,7 +31,7 @@ class WavtoSpec:
                 files = [f for f in files if f.lower().endswith('.wav')]
                 for file in files:
                     full_path = os.path.join(root, file)
-                    self.convert_to_spectrogram(full_path)
+                    self.convert_to_spectrogram_test(full_path)
                     pbar.update(1)  # Update the progress bar for each file
     
     def convert_to_spectrogram(self, file_path, min_length_ms=1000, default_sample_rate=44100):
@@ -83,6 +83,72 @@ class WavtoSpec:
             # # Post-processing: Clipping and Normalization
             # clipping_level = -2  # dB
             # clipped_spec = np.clip(Sxx_log, a_min=clipping_level, a_max=None)
+           
+            mean = Sxx_log.mean()
+            std = Sxx_log.std()
+
+            z_scored_spec = (Sxx_log - mean) / std
+            
+            # Define the path where the spectrogram will be saved
+            spec_filename = os.path.splitext(os.path.basename(file_path))[0]
+            spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
+
+            # Saving the spectrogram and the labels
+            np.savez_compressed(spec_file_path, s=z_scored_spec)
+            plt.close()
+
+        except ValueError as e:
+            print(f"Error reading {file_path}: {e}")
+
+    def convert_to_spectrogram_test(self, file_path, min_length_ms=1000, default_sample_rate=44100):
+        try:
+            samplerate, data = wavfile.read(file_path)
+
+            # Check if the data is multichannel (e.g., stereo)
+            if len(data.shape) > 1:
+                # Select one channel (e.g., the first channel)
+                data = data[:, 0]
+
+            # Resample the data if the samplerate does not match the default_sample_rate
+            if samplerate != default_sample_rate:
+                # print(f"Resampling from {samplerate}Hz to {default_sample_rate}Hz.")
+                # Calculate the number of samples after resampling
+                num_samples = int(len(data) * default_sample_rate / samplerate)
+                # Resample the data
+                data = resample(data, num_samples)
+                # Update the samplerate to the default_sample_rate
+                samplerate = default_sample_rate
+
+            # Calculate the length of the audio file in milliseconds
+            length_in_ms = (data.shape[0] / samplerate) * 1000
+
+            if length_in_ms < min_length_ms:
+                print(f"File {file_path} is below the length threshold and will be skipped.")
+                return  # Skip processing this file
+
+            # High-pass filter (adjust the filtering frequency as necessary)
+            b, a = ellip(5, 0.2, 40, 500/(samplerate/2), 'high')
+            data = filtfilt(b, a, data)
+
+            # Canary song analysis parameters
+            NFFT = 1024  # Number of points in FFT
+            step_size = 119  # Step size for overlap
+
+            # Calculate the overlap in samples
+            overlap_samples = NFFT - step_size
+
+            # Use a Gaussian window
+            window = windows.gaussian(NFFT, std=NFFT/8)
+
+            # Compute the spectrogram with the Gaussian window
+            f, t, Sxx = spectrogram(data, fs=samplerate, window=window, nperseg=NFFT, noverlap=overlap_samples)
+
+            # Convert to dB
+            Sxx_log = 10 * np.log10(Sxx)
+
+            # Post-processing: Clipping and Normalization
+            clipping_level = -2  # dB
+            Sxx_log = np.clip(Sxx_log, a_min=clipping_level, a_max=None)
            
             mean = Sxx_log.mean()
             std = Sxx_log.std()
@@ -277,9 +343,9 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # # Usage:
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_temp/canary_wav', '/media/george-vengrovski/disk2/canary_temp/canary_spec')
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/combined_data_wav_files', '/media/george-vengrovski/disk2/budgie/combined_data_specs')
 wav_to_spec.process_directory()
 # wav_to_spec.analyze_dataset()
-# wav_to_spec.plot_grid_of_spectrograms()
+wav_to_spec.plot_grid_of_spectrograms()
 # # wav_to_spec.save_npz()
 # # wav_to_spec.visualize_random_spectrogram()
