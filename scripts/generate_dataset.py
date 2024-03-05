@@ -13,14 +13,13 @@ from spectogram_processor import SpectrogramProcessor
 
 # Define a configuration class or use a dictionary
 class Config:
-    def __init__(self, data_root, train_dir, test_dir, n_clusters):
+    def __init__(self, data_root, train_dir, test_dir):
         self.data_root = data_root
         self.train_dir = train_dir
         self.test_dir = test_dir
-        self.n_clusters = n_clusters
         
 configs = [
-    Config(data_root="/media/george-vengrovski/disk2/budgie/combined_data_specs", train_dir="files/combined_cornell_budgie_train", test_dir="files/combined_cornell_budgie_test", n_clusters=30)
+    Config(data_root="/media/george-vengrovski/disk2/budgie/dev_clip_npz", train_dir="files/dev_train", test_dir="files/dev_test",)
 ]
 
 # Iterate over the configurations and process

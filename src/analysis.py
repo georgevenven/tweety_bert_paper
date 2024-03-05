@@ -13,6 +13,7 @@ from sklearn.metrics.cluster import completeness_score
 import seaborn as sns
 import pandas as pd
 from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
+import pickle
 
 def average_colors_per_sample(ground_truth_labels, cmap):
     """
@@ -210,16 +211,18 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     else:
         predictions = predictions[:samples]
         ground_truth_labels = ground_truth_labels[:samples]
+        spec_arr = spec_arr[:samples]
 
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+
     ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    # np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
+    np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
 
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)    
@@ -245,45 +248,52 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         plt.show()
 
 
-    # # horrible code, not my fault... 
-    # if save_dict_for_analysis:
-    #     # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
-    #     print(f"embedings arr {embedding_outputs.shape}")
+    # horrible code, not my fault... 
+    if save_dict_for_analysis:
+        # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
 
-    #     # start end 
-    #     step_size = 2.7 * time_bins_per_umap_point
+        with open(file_path, 'rb') as file:
+            color_map_data = pickle.load(file)
 
-    #     emb_start = np.arange(0, step_size * embedding_outputs.shape[0], step_size)
-    #     emb_end = emb_start + step_size 
-    #     embStartEnd = np.stack((emb_start, emb_end), axis=0)
-    #     print(f"embstartend {embStartEnd.shape}")
+        label_to_color = {label: tuple(color) for label, color in color_map_data.items()}
 
-    #     colors_for_points = np.array([label_to_color[lbl] for lbl in ground_truth_labels])
-    #     print(f"mean_colors_per_minispec {colors_for_points.shape}")
+        hdbscan_labels = hdbscan_labels + 1
+        print(f"embedings arr {embedding_outputs.shape}")
 
-    #     colors_per_timepoint = []
+        # start end 
+        step_size = 2.7 * time_bins_per_umap_point
 
-    #     ground_truth_labels = ground_truth_labels.reshape(-1, 1)
-    #     for label_row in ground_truth_labels:
-    #         avg_color = label_to_color[int(label_row)]
-    #         colors_per_timepoint.append(avg_color)
-    #     colors_per_timepoint = np.array(colors_per_timepoint)
+        emb_start = np.arange(0, step_size * embedding_outputs.shape[0], step_size)
+        emb_end = emb_start + step_size 
+        embStartEnd = np.stack((emb_start, emb_end), axis=0)
+        print(f"embstartend {embStartEnd.shape}")
 
-    #     print(f"colors_per_timepoint {colors_per_timepoint.shape}")
+        colors_for_points = np.array([label_to_color[lbl] for lbl in hdbscan_labels])
+        print(f"mean_colors_per_minispec {colors_for_points.shape}")
 
-    #     embVals = embedding_outputs
-    #     behavioralArr = spec_arr.T
-    #     mean_colors_per_minispec = colors_for_points
+        colors_per_timepoint = []
 
-    #     print(f"behavioral arr{behavioralArr.shape}")
+        hdbscan_labels = hdbscan_labels.reshape(-1, 1)
+        for label_row in hdbscan_labels:
+            avg_color = label_to_color[int(label_row)]
+            colors_per_timepoint.append(avg_color)
+        colors_per_timepoint = np.array(colors_per_timepoint)
 
-    #     # Save the arrays into a single .npz file
-    #     np.savez_compressed('/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/umap_dict_file.npz', 
-    #                         embStartEnd=embStartEnd, 
-    #                         embVals=embVals, 
-    #                         behavioralArr=behavioralArr, 
-    #                         mean_colors_per_minispec=mean_colors_per_minispec, 
-    #                         colors_per_timepoint=colors_per_timepoint)
+        print(f"colors_per_timepoint {colors_per_timepoint.shape}")
+
+        embVals = embedding_outputs
+        behavioralArr = spec_arr.T
+        mean_colors_per_minispec = colors_for_points
+
+        print(f"behavioral arr{behavioralArr.shape}")
+
+        # Save the arrays into a single .npz file
+        np.savez_compressed('/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/umap_dict_file.npz', 
+                            embStartEnd=embStartEnd, 
+                            embVals=embVals, 
+                            behavioralArr=behavioralArr, 
+                            mean_colors_per_minispec=mean_colors_per_minispec, 
+                            colors_per_timepoint=colors_per_timepoint)
 
 
 def apply_windowing(arr, window_size, stride, flatten_predictions=False):

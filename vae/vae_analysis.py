@@ -253,15 +253,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # File paths
-config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-test-1/config.json"
-weight_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-test-1/saved_weights/model_step_2000.pth"
+config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-Bungie-Rawer-Specs/config.json"
+weight_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/VAE-Bungie-Rawer-Specs/saved_weights/model_step_2500.pth"
 
 # Load config file
 with open(config_path, 'r') as config_file:
     config = json.load(config_file)
     # Initialize your model (ensure this matches the architecture expected by the weights)
     # model = VariationalAutoencoder(latent_dims=config["latent_dims"], variational_beta=config["variational_beta"], input_height=config["input_height"], input_width=config["input_width"])  # Add any required arguments for your model initialization here
-    model = VariationalAutoencoder(latent_dims=config["latent_dims"], variational_beta=config["variational_beta"], input_height=196, input_width=100)  # Add any required arguments for your model initialization here
+    model = VariationalAutoencoder(latent_dims=config["latent_dims"], variational_beta=config["variational_beta"], input_height=config["input_height"], input_width=config["input_width"])  # Add any required arguments for your model initialization here
     model = model.to(device)
 
 # Load weights
@@ -270,7 +270,7 @@ model.load_state_dict(torch.load(weight_path, map_location=device))
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/llb3_test",
+data_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/dev_train",
 remove_silences=False,  # Using new config parameter``
 samples=2e7, ## Excessive to collect all the songs in test set 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
@@ -280,7 +280,7 @@ time_bins_per_umap_point=1,
 context=100,  # Using new config parameter98
 raw_spectogram=False,
 save_dict_for_analysis = True,
-save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/vae_umap_100_lbb3.png",
+save_dir="/home/george-vengrovski/Documents/projects/tweety_bert_paper/vae_umap_100_dev.png",
 compute_svm= False,
 color_scheme = "Label"
 )

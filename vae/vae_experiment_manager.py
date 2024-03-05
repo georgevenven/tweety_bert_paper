@@ -115,7 +115,7 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 # Define configurations
 configurations = [
-        {"experiment_name": "VAE-Bungie-Rawer-Specs", "latent_dims": 32, "variational_beta": 1, "input_width": 100,"input_height": 513,  "train_dir": "files/combined_cornell_budgie_train", "test_dir": "files/combined_cornell_budgie_test", "batch_size": 48, "learning_rate": 3e-4, "max_steps": 25e3, "eval_interval": 250, "save_interval": 1000, "remove_silences": False, "early_stopping": True, "patience": 4, "trailing_avg_window":200}
+        {"experiment_name": "VAE-Bungie-Rawer-Specs", "latent_dims": 32, "variational_beta": 1, "input_width": 100,"input_height": 513,  "train_dir": "files/dev_train", "test_dir": "files/dev_test", "batch_size": 48, "learning_rate": 3e-4, "max_steps": 25e3, "eval_interval": 250, "save_interval": 1000, "remove_silences": False, "early_stopping": True, "patience": 4, "trailing_avg_window":200}
 ]
 
 for i, config in enumerate(configurations):
