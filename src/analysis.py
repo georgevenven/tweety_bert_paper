@@ -105,7 +105,7 @@ def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=1000):
 def plot_umap_projection(model, device, data_dir="test_llb16",
                          remove_silences=False, samples=100, file_path='category_colors.pkl', 
                          layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
-                         context=1000, save_dir=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
+                         context=1000, save_name=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
     predictions_arr = []
     ground_truth_labels_arr = []
     spec_arr = [] 
@@ -220,33 +220,44 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
 
     ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
-    np.savez("files/labels", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
+    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    np.savez_compressed('hdbscan_and_gtruth.npz', ground_truth_labels=ground_truth_labels, embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels)
-
+    # Extend the color palette and set it
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
-    cmap = mcolors.ListedColormap(cmap)    
+    cmap = mcolors.ListedColormap(cmap)
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure and a 1x2 grid of subplots
+    # Create a figure and a 1x2 grid of subplots
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
-    axes[0].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
-    axes[0].set_title("HDBSCAN")
+    for i, ax in enumerate(axes):
+        # Scatter plot with HDBSCAN labels and ground truth labels
+        if i == 0:
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+        else:
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
 
-    # Plot with the original color scheme
-    axes[1].scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
-    axes[1].set_title("Original Coloring")
+        # Remove the axis tick numbers
+        ax.tick_params(
+            axis='both',          # changes apply to both axes
+            which='both',         # both major and minor ticks are affected
+            bottom=False,         # ticks along the bottom edge are off
+            left=False,           # ticks along the left edge are off
+            labelbottom=False,    # labels along the bottom edge are off
+            labelleft=False       # labels along the left edge are off
+        )
 
-    if raw_spectogram:
-        plt.title(f'UMAP of Spectogram', fontsize=14)
-    else:
-        plt.title(f'UMAP Projection of (Layer: {layer_index}, Key: {dict_key})', fontsize=14)
+        # Remove the square border around the plot
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-    # Save the plot if save_dir is specified
-    if save_dir:
-        plt.savefig(save_dir, format='png')
-    else:
-        plt.show()
+        # Add titles to the subplots
+        ax.set_title("HDBSCAN Discovered Labels" if i == 0 else "Ground Truth Labels", fontsize=20)
 
+    # Adjust the layout to ensure everything fits without overlap
+    plt.tight_layout()
+    # Save or display the plot
+    # plt.savefig(save_name + ".png")
+    plt.savefig(save_name + ".pdf", format='pdf')
 
     # horrible code, not my fault... 
     if save_dict_for_analysis:

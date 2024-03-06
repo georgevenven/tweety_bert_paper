@@ -17,6 +17,7 @@ class SongDataSet_Image(Dataset):
         file_path = self.file_paths[index]
         data = np.load(file_path, allow_pickle=True)
         spectogram = data['s']
+        # spectogram = spectogram[20:216]
 
         # Check if 'labels' key exists in data, if not, create a one-dimensional array
         if 'labels' in data:
