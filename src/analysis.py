@@ -228,6 +228,9 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     # Create a figure and a 1x2 grid of subplots
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    # plt.rcParams['path.simplify'] = True
+    # plt.rcParams['path.simplify_threshold'] = 1.0  # Increase for more simplification
+
 
     for i, ax in enumerate(axes):
         # Scatter plot with HDBSCAN labels and ground truth labels
@@ -256,8 +259,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     # Adjust the layout to ensure everything fits without overlap
     plt.tight_layout()
     # Save or display the plot
-    # plt.savefig(save_name + ".png")
-    plt.savefig(save_name + ".pdf", format='pdf')
+    plt.savefig(save_name + ".png")
+    # plt.savefig(save_name + ".svg", format='svg')
 
     # horrible code, not my fault... 
     if save_dict_for_analysis:
@@ -732,4 +735,5 @@ def plot_metrics(metrics_list, model_names):
     plt.ylim(0, 1)  # Setting y-axis from 0 to 1
     plt.legend(loc='upper left')
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig("metrics_comparison.svg", format='svg')
