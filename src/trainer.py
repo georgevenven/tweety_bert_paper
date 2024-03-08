@@ -317,11 +317,6 @@ class ModelTrainer:
         training_losses = training_stats['training_loss']
         validation_losses = training_stats['validation_loss']
 
-        print(np.array(training_losses).shape)
-        print(np.array(validation_losses).shape)
-        # Do this for any other data you're plotting to check their shapes
-
-
         masked_seq_acc = training_stats['masked_seq_acc']
         unmasked_seq_acc = training_stats['unmasked_seq_acc']
         # Apply moving average to smooth the metrics

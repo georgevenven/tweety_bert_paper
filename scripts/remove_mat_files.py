@@ -5,10 +5,10 @@ import os
 import sys
 sys.path.append("src")
 
-os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_cluster/project')
+os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
 # For removing mat files 
-folders = ['/home/george-vengrovski/Documents/data/llb3_data_matrices', '/home/george-vengrovski/Documents/data/llb11_data_matrices', '/home/george-vengrovski/Documents/data/llb16_data_matrices']
+folders = ['/media/george-vengrovski/disk2/canary_temp/combined_yarden_specs']
 
 for folder in folders:
     if os.path.exists(folder):

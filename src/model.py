@@ -172,18 +172,32 @@ class TweetyBERT(nn.Module):
 
         # TweetyNet Front End
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
-        self.pool1 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
+        self.pool1 = nn.MaxPool2d(kernel_size=(8, 1), stride=(8, 1))
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
-        self.pool2 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
+        self.pool2 = nn.MaxPool2d(kernel_size=(8, 1), stride=(8, 1))
 
         self.pos_enc = PositionalEncoding(d_transformer)
-        self.learned_pos_enc = nn.Embedding(length, d_transformer)
-        self.label_embedding = nn.Embedding(num_labels, embedding_dim)
+        # self.learned_pos_enc = nn.Embedding(length, d_transformer)
 
         # transformer
-        self.transformerProjection = nn.Linear(128, d_transformer)
+        self.transformerProjection = nn.Linear(512, d_transformer)
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
+
+        # # TweetyNet Front End
+        # self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
+        # self.pool1 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
+        # self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
+        # self.pool2 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
+
+        # self.pos_enc = PositionalEncoding(d_transformer)
+        # self.learned_pos_enc = nn.Embedding(length, d_transformer)
+        # self.label_embedding = nn.Embedding(num_labels, embedding_dim)
+
+        # # transformer
+        # self.transformerProjection = nn.Linear(64, d_transformer)
+        # self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
+        # self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
 
         self.device = "cuda:0"
         self.to(self.device)

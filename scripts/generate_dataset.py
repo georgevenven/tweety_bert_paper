@@ -19,7 +19,7 @@ class Config:
         self.test_dir = test_dir
         
 configs = [
-    Config(data_root="/media/george-vengrovski/disk2/budgie/dev_npz_carrot_method", train_dir="files/dev_train", test_dir="files/dev_test")
+    Config(data_root="/media/george-vengrovski/disk2/canary_temp/combined_yarden_specs", train_dir="files/yarden_train", test_dir="files/yarden_test")
 ]
 
 # Iterate over the configurations and process

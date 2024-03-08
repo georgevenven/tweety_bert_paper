@@ -182,7 +182,7 @@ class ExperimentRunner:
         )        
 
         # # Train the model with passed training_stats and last_step
-        # trainer.train(continue_training=config.get('continue_training', False), training_stats=training_stats, last_step=last_step)
+        trainer.train(continue_training=config.get('continue_training', False), training_stats=training_stats, last_step=last_step)
         
         # Plot the results
         trainer.plot_results(save_plot=True, config=config)

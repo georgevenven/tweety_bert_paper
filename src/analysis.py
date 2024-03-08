@@ -71,7 +71,7 @@ def load_data( data_dir, context=1000, psuedo_labels_generated=True):
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
-def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=1000):
+def generate_hdbscan_labels(array, min_samples=1, min_cluster_size=5000):
     """
     Generate labels for data points using the HDBSCAN (Hierarchical Density-Based Spatial Clustering of Applications with Noise) clustering algorithm.
 
@@ -98,7 +98,7 @@ def generate_hdbscan_labels(array, min_samples=5, min_cluster_size=1000):
     # Fit the model to the data and extract the labels.
     labels = hdbscan_model.fit_predict(array)
 
-    print(np.unique(labels))
+    print(f"discovered labels {np.unique(labels)}")
 
     return labels
 
@@ -220,10 +220,18 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
 
     ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    
+    # sets noise as white  
+    hdbscan_labels += 1
+
+    # first syllable will be black, make sure no white syllables 
+    ground_truth_labels += 2
+
+
     np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    # Extend the color palette and set it
-    cmap = glasbey.extend_palette(["#000000"], palette_size=30)
+    # Extend the color palette so that label 0 is white and label 1 is black 
+    cmap = glasbey.extend_palette(["#FFFFFF", "#000000"], palette_size=30)
     cmap = mcolors.ListedColormap(cmap)
 
     # Create a figure and a 1x2 grid of subplots
