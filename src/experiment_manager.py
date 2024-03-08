@@ -46,18 +46,15 @@ class ExperimentRunner:
     def load_existing_statistics(self, experiment_dir):
         training_stats = {}
         last_step = 0
-    
+
         with open(os.path.join(experiment_dir, "training_statistics.json"), 'r') as json_file:
             stats = json.load(json_file)
             last_step = max(last_step, stats['step'])
             for key, value in stats.items():
-                if key not in training_stats:
-                    training_stats[key] = [value]
-                else:
-                    training_stats[key].append(value)
+                training_stats[key] = value  # Assign value directly without wrapping in a list
 
         return training_stats, last_step
-    
+
     def run_experiment(self, config, i):
         experiment_name = config.get('experiment_name', f"experiment_{i}")
 

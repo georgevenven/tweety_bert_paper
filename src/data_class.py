@@ -19,6 +19,12 @@ class SongDataSet_Image(Dataset):
         spectogram = data['s']
         # spectogram = spectogram[20:216]
 
+        # Remove when free from Yarden's Spec Gen Method 
+        # Z-score normalization
+        mean = spectogram.mean()
+        std = spectogram.std()
+        spectogram = (spectogram - mean) / std
+
         # Check if 'labels' key exists in data, if not, create a one-dimensional array
         if 'labels' in data:
             ground_truth_labels = data['labels']

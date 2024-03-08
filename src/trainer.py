@@ -214,10 +214,6 @@ class ModelTrainer:
             raw_unmasked_seq_acc_list = training_stats.get('unmasked_seq_acc', [])
             steps_since_improvement = training_stats.get('steps_since_improvement', 0)
             best_val_loss = training_stats.get('best_val_loss', float('inf'))
-
-            # for some reason its gotten as a list, figure out later 
-            best_val_loss = best_val_loss[0]
-            steps_since_improvement = steps_since_improvement[0]
         else:
             # Initialize all metrics as lists
             raw_loss_list = []
