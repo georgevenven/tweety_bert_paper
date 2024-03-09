@@ -71,7 +71,7 @@ class ExperimentRunner:
                 loaded_config = json.load(f)
 
             # Check for potential conflicts in config that would affect model loading
-            critical_keys = ['d_transformer', 'nhead_transformer', 'embedding_dim', 'num_ground_truth_labels', 'transformer_layers']
+            critical_keys = ['d_transformer', 'nhead_transformer', 'num_freq_bins', 'num_ground_truth_labels', 'transformer_layers']
             conflict_keys = [key for key in critical_keys if key in config and config[key] != loaded_config[key]]
 
             if conflict_keys:
@@ -107,7 +107,7 @@ class ExperimentRunner:
         model = TweetyBERT(
             d_transformer=config['d_transformer'], 
             nhead_transformer=config['nhead_transformer'],
-            embedding_dim=config['spec_height'],
+            num_freq_bins=config['num_freq_bins'],
             num_labels=config['num_ground_truth_labels'],
             dropout=config['dropout'],
             dim_feedforward=config['dim_feedforward'],

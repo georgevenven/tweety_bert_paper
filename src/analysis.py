@@ -230,22 +230,23 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
     np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
-    # Extend the color palette so that label 0 is white and label 1 is black 
-    cmap = glasbey.extend_palette(["#FFFFFF", "#000000"], palette_size=30)
-    cmap = mcolors.ListedColormap(cmap)
+    # So that noise is white for HDBSCAN Plot
+    cmap_hdbscan_labels = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
+    cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
+
+    # So that noise is white for HDBSCAN Plot
+    cmap_ground_truth = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
+    cmap_ground_truth = mcolors.ListedColormap(cmap_ground_truth)
 
     # Create a figure and a 1x2 grid of subplots
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    # plt.rcParams['path.simplify'] = True
-    # plt.rcParams['path.simplify_threshold'] = 1.0  # Increase for more simplification
-
-
+   
     for i, ax in enumerate(axes):
         # Scatter plot with HDBSCAN labels and ground truth labels
         if i == 0:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap)
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap_hdbscan_labels)
         else:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap)
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap_ground_truth)
 
         # Remove the axis tick numbers
         ax.tick_params(
@@ -725,23 +726,29 @@ def plot_metrics(metrics_list, model_names):
     for i, metric_name in enumerate(['Homogeneity', 'Completeness', 'V-measure']):
         for j, metrics in enumerate(metrics_list):
             mean = metrics[metric_name][0]
-            error = metrics[metric_name][1]
             # Center bars within each group
             position = group_positions[i] + (j - num_models / 2) * bar_width + bar_width / 2
 
             # Use consistent colors for each model across metrics
-            plt.bar(position, mean, yerr=error, width=bar_width, color=color_palette[j],
-                    label=f'{metric_name} - {model_names[j]}' if i == 0 else "", capsize=5, align='center')
+            plt.bar(position, mean, width=bar_width, color=color_palette[j],
+                    label=model_names[j] if i == 0 else "", align='center')
 
-    plt.xlabel('Metrics', fontsize=14)
-    plt.ylabel('Scores', fontsize=14)
-    plt.title('Comparison of Clustering Metrics Across Models', fontsize=16)
+    plt.xlabel('Metrics', fontsize=42)
+    plt.ylabel('Scores', fontsize=42)
+    plt.title('Comparison of Clustering Metrics Across Models', fontsize=42)
 
     # Set the position and labels for each group
-    plt.xticks(group_positions, ['Homogeneity', 'Completeness', 'V-measure'])
+    plt.xticks(group_positions, ['Homogeneity', 'Completeness', 'V-measure'], fontsize=36)
+    plt.yticks(fontsize=36)
 
     plt.ylim(0, 1)  # Setting y-axis from 0 to 1
-    plt.legend(loc='upper left')
+
+    # Add grid to the plot
+    plt.grid(True, linestyle='--', which='major', color='grey', alpha=.25)
+
+    # Enlarge the labels for the legend.
+    plt.legend(loc='upper left', fontsize=36)
     plt.tight_layout()
-    # plt.show()
-    plt.savefig("metrics_comparison.svg", format='svg')
+    plt.show()
+
+    # plt.savefig("metrics_comparison.png", format='png')

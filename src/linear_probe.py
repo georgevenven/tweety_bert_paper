@@ -185,7 +185,7 @@ class LinearProbeTrainer():
                                 break
 
                     if self.use_tqdm: 
-                        print(f'Batch {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
+                        print(f'Step {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
 
                 if stop_training:
                     break
@@ -200,15 +200,15 @@ class LinearProbeTrainer():
         plt.subplot(1, 2, 1)
         plt.plot(loss_list, label='Training Loss')
         plt.plot(val_loss_list, label='Validation Loss')
-        plt.title('Loss over Batches')
-        plt.xlabel('Batches')
+        plt.title('Loss over Steps')
+        plt.xlabel('Steps')
         plt.ylabel('Loss')
         plt.legend()
 
         plt.subplot(1, 2, 2)
         plt.plot(frame_error_rate_list, label='Frame Error Rate', color='red')
-        plt.title('Frame Error Rate over Batches')
-        plt.xlabel('Batches')
+        plt.title('Frame Error Rate over Steps')
+        plt.xlabel('Steps')
         plt.ylabel('Error Rate (%)')
         plt.legend()
 
@@ -216,13 +216,26 @@ class LinearProbeTrainer():
         plt.show()
 
 class ModelEvaluator:
-    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', use_tqdm=True):
-        self.model = model
+    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', use_tqdm=True, filter_unseen_classes=False, train_dir=None):
+        self.model = model.to(device)
         self.test_loader = test_loader
         self.num_classes = num_classes
-        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
+        self.device = device
         self.use_tqdm = use_tqdm
+        self.filter_unseen_classes = filter_unseen_classes
+        self.seen_classes = set(range(num_classes))  # Assume all classes are seen by default
+        if filter_unseen_classes and train_dir:
+            self.seen_classes = self.count_labels_in_training_set(train_dir)
+
+    def count_labels_in_training_set(self, train_dir):
+        seen_classes = set()
+        for file_name in os.listdir(train_dir):
+            if file_name.endswith('.npz'):
+                data = np.load(os.path.join(train_dir, file_name))
+                labels = data['labels']
+                unique_labels = set(np.unique(labels))
+                seen_classes.update(unique_labels)
+        return seen_classes
 
     def validate_model_multiple_passes(self, num_passes=1, max_batches=100):
         self.model.eval()
@@ -252,11 +265,14 @@ class ModelEvaluator:
                     incorrect = ~correct
 
                     for cls in range(self.num_classes):
-                        class_mask = (true_labels == cls)
+                        if self.filter_unseen_classes and cls not in self.seen_classes:
+                            continue  # Skip classes not seen in training
+
+                        class_mask = true_labels == cls
                         incorrect_class = incorrect & class_mask
 
                         errors_per_class[cls] += incorrect_class.sum().item()
-                        correct_per_class[cls] += (correct_class := correct & class_mask).sum().item()
+                        correct_per_class[cls] += (correct & class_mask).sum().item()
 
                         total_frames += class_mask.sum().item()
                         total_errors += incorrect_class.sum().item()
@@ -295,14 +311,20 @@ class ModelEvaluator:
             json.dump(results_data, file)
 
     def plot_error_rates(self, class_frame_error_rates, plot_filename, save_path):
+        if self.filter_unseen_classes:
+            # Filter out unseen classes before plotting
+            filtered_class_frame_error_rates = {cls: rate for cls, rate in class_frame_error_rates.items() if cls in self.seen_classes}
+        else:
+            filtered_class_frame_error_rates = class_frame_error_rates
+
         plt.figure(figsize=(10, 6))
-        plt.bar(range(len(class_frame_error_rates)), class_frame_error_rates.values(), color='skyblue')
+        plt.bar(range(len(filtered_class_frame_error_rates)), filtered_class_frame_error_rates.values(), color='skyblue')
         plt.xlabel('Class', fontsize=15)
         plt.ylabel('Frame Error Rate (%)', fontsize=15)
         plt.title(f'Frame Error Rates - {plot_filename.replace(".png", "")}', fontsize=15)
-        plt.xticks(range(len(class_frame_error_rates)), class_frame_error_rates.keys(), fontsize=12, rotation=45)
+        plt.xticks(range(len(filtered_class_frame_error_rates)), filtered_class_frame_error_rates.keys(), fontsize=12, rotation=45)
         plt.yticks(fontsize=12)
-        plt.ylim(0, 100)
+        plt.ylim(0, max(filtered_class_frame_error_rates.values()) + 5)  # Ensure the y-axis goes a bit beyond the max value for better visualization
         plt.tight_layout()
         plt.savefig(os.path.join(save_path, plot_filename))
         plt.close()

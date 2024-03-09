@@ -10,8 +10,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
-weights_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/saved_weights/model_step_6400.pth"
-config_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/experiments/TweetyBERT-MSE-Mask-Before-50-mask-alpha-1/config.json"
+weights_path = "experiments/pause_test/saved_weights/model_step_20.pth"
+config_path = "experiments/pause_test/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -22,31 +22,31 @@ from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metr
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="files/llb3_test",
-samples=5e5, 
+data_dir="files/yarden_test",
+samples=5e3, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=1, 
 dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="TweetyBERT_LLB3",
+save_name="cmap_test",
 )
 
-# Raw Spectogram 
-plot_umap_projection(
-model=model, 
-device=device, 
-data_dir="files/llb3_test",
-samples=5e5, 
-file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=1, 
-dict_key="attention_output", 
-context=1000, 
-raw_spectogram=True,
-save_dict_for_analysis = False,
-save_name="UMAP_LLB3",
-)
+# # Raw Spectogram 
+# plot_umap_projection(
+# model=model, 
+# device=device, 
+# data_dir="files/llb3_test",
+# samples=5e5, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=1, 
+# dict_key="attention_output", 
+# context=1000, 
+# raw_spectogram=True,
+# save_dict_for_analysis = False,
+# save_name="UMAP_LLB3",
+# )
 
 # clustering_instance = ComputerClusterPerformance(['/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/500k_run.npz','/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/500k_run.npz', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/500k_run.npz'])
 # metrics_TweetyBERT = clustering_instance.compute_vmeasure_score()

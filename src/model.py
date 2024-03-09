@@ -159,7 +159,7 @@ class PositionalEncoding(torch.nn.Module):
         return x + self.pe[:, :x.size(1), :]
 
 class TweetyBERT(nn.Module):
-    def __init__(self, d_transformer, nhead_transformer, embedding_dim, num_labels, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
+    def __init__(self, d_transformer, nhead_transformer, num_freq_bins, num_labels, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
         super(TweetyBERT, self).__init__()
         self.num_labels = num_labels
         self.dropout = dropout
@@ -167,7 +167,6 @@ class TweetyBERT(nn.Module):
         self.p = p 
         self.alpha = alpha 
         self.d_transformer = d_transformer
-        self.embedding_dim = embedding_dim
         self.pos_enc_type = pos_enc_type
 
         # TweetyNet Front End
@@ -177,12 +176,10 @@ class TweetyBERT(nn.Module):
         self.pool2 = nn.MaxPool2d(kernel_size=(8, 1), stride=(8, 1))
 
         self.pos_enc = PositionalEncoding(d_transformer)
-        # self.learned_pos_enc = nn.Embedding(length, d_transformer)
-
         # transformer
         self.transformerProjection = nn.Linear(512, d_transformer)
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
-        self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
+        self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
 
         # # TweetyNet Front End
         # self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
@@ -192,12 +189,12 @@ class TweetyBERT(nn.Module):
 
         # self.pos_enc = PositionalEncoding(d_transformer)
         # self.learned_pos_enc = nn.Embedding(length, d_transformer)
-        # self.label_embedding = nn.Embedding(num_labels, embedding_dim)
+        # self.label_embedding = nn.Embedding(num_labels, num_freq_bins)
 
         # # transformer
         # self.transformerProjection = nn.Linear(64, d_transformer)
         # self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
-        # self.transformerDeProjection = nn.Linear(d_transformer, embedding_dim)
+        # self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
 
         self.device = "cuda:0"
         self.to(self.device)

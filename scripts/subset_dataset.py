@@ -5,13 +5,13 @@ import shutil
 import random
 from tqdm import tqdm
 
-def copy_random_files(src, dst, num_files=1000):
+def copy_random_files(src, dst, subset_percentage=0.1):
     """
-    Randomly copies a specified number of .npz files from `src` to `dst`.
+    Randomly copies a specified percentage of .npz files from `src` to `dst`.
 
     :param src: Source directory path.
     :param dst: Destination directory path.
-    :param num_files: Number of .npz files to be copied. Default is 1000.
+    :param subset_percentage: Percentage of .npz files to be copied, e.g., 0.1 for 10%. Default is 0.1.
     """
 
     if not os.path.exists(src):
@@ -26,10 +26,12 @@ def copy_random_files(src, dst, num_files=1000):
     # List all npz files in the source directory
     npz_files = [item for item in os.listdir(src) if item.endswith(".npz")]
 
-    # If there are fewer npz files than requested, copy all of them
-    if len(npz_files) < num_files:
-        print(f"Only {len(npz_files)} files found. Copying all of them.")
-        num_files = len(npz_files)
+    # Calculate the number of files to copy based on the given percentage
+    num_files = int(len(npz_files) * subset_percentage)
+
+    # If there are no files to copy, exit the function
+    if num_files == 0:
+        return "The subset percentage results in zero files to be copied. Please increase the subset percentage."
 
     # Randomly select npz files to copy
     npz_files_to_copy = set(random.sample(npz_files, num_files))
@@ -40,11 +42,10 @@ def copy_random_files(src, dst, num_files=1000):
         dst_path = os.path.join(dst, file)
         shutil.copy2(src_path, dst_path)
 
-    return f"Copied {num_files} .npz files from {src} to {dst}."
+    return f"Copied {num_files} (.npz) files from {src} to {dst}."
 
 # Usage
-subset_number = 10000
-src = "/home/george-vengrovski/Documents/data/pretrain_dataset"
-dst = "/home/george-vengrovski/Documents/data/pretrain_songdetector"
-
-copy_random_files(src, dst, subset_number)
+subset_percentage = 0.01  # 10% of the total files
+src = "files/llb3_train"
+dst = "files/llb3_train_1_precent"
+copy_random_files(src, dst, subset_percentage)
