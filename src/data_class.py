@@ -4,32 +4,48 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.profiler import profile, record_function, ProfilerActivity
 
 class SongDataSet_Image(Dataset):
-    def __init__(self, file_dir, num_classes=196):
-        self.file_paths = []
+    def __init__(self, file_dir, num_classes=40):
+        self.file_paths = [os.path.join(file_dir, file) for file in os.listdir(file_dir)]
         self.num_classes = num_classes
+        self.shuffle_indices()
+        self.access_count = 0
 
-        for file in os.listdir(file_dir):
-            self.file_paths.append(os.path.join(file_dir, file))
+    def shuffle_indices(self):
+        self.indices = np.random.permutation(len(self.file_paths))
 
-    def __getitem__(self, index):
-        file_path = self.file_paths[index]
-        data = np.load(file_path, allow_pickle=True)
-        spectogram = data['s']
+    def __getitem__(self, _):
+        # Access data in a cyclic and shuffled manner
+        actual_idx = self.indices[self.access_count % len(self.file_paths)]
+        self.access_count += 1
+
+        # Reshuffle after a complete pass through the dataset
+        if self.access_count % len(self.file_paths) == 0:
+            self.shuffle_indices()
+
+        # file_path = self.file_paths[actual_idx]
+        # data = np.load(file_path, allow_pickle=True)
+        # spectogram = data['s']
+
+
+        spectogram = np.zeros((513, 800), dtype=float)
         # spectogram = spectogram[20:216]
 
         # Remove when free from Yarden's Spec Gen Method 
         # Z-score normalization
-        mean = spectogram.mean()
-        std = spectogram.std()
-        spectogram = (spectogram - mean) / std
+        # mean = spectogram.mean()
+        # std = spectogram.std()
+        # spectogram = (spectogram - mean) / std
 
-        # Check if 'labels' key exists in data, if not, create a one-dimensional array
-        if 'labels' in data:
-            ground_truth_labels = data['labels']
-        else:
-            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)  # all zeros represent the lack of labels
+        # # Check if 'labels' key exists in data, if not, create a one-dimensional array
+        # if 'labels' in data and data['labels'] is not None:
+        #     ground_truth_labels = data['labels']
+        # else:
+        ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)  # all zeros represent the lack of labels
+
 
         ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
         spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
@@ -38,13 +54,17 @@ class SongDataSet_Image(Dataset):
         return spectogram, ground_truth_labels
 
     def __len__(self):
-        return len(self.file_paths)
-
+        # Return an arbitrarily large number to simulate an infinite dataset
+        return int(1e12)  # or sys.maxsize for the largest possible int
+    
 class CollateFunction:
     def __init__(self, segment_length=1000):
         self.segment_length = segment_length
 
     def __call__(self, batch):
+        # with torch.profiler.record_function("collate_fn"):
+
+        # with record_function("collate_fn"):
         # Unzip the batch (a list of (spectogram, psuedo_labels, ground_truth_labels) tuples)
         spectograms, ground_truth_labels = zip(*batch)
 
@@ -54,7 +74,6 @@ class CollateFunction:
 
         # Each sample in batch
         for spectogram, ground_truth_label in zip(spectograms, ground_truth_labels):
-
             # Truncate if larger than context window
             if spectogram.shape[0] > self.segment_length:
                 # get random view of size segment
@@ -84,3 +103,21 @@ class CollateFunction:
         spectograms = spectograms.unsqueeze(1).permute(0,1,3,2)
 
         return spectograms, ground_truth_labels
+
+
+# # Initialize your dataset and collate_fn
+# dataset = SongDataSet_Image(file_dir='files/yarden_test')
+# collate_fn = CollateFunction(segment_length=1000)
+
+# # Create the DataLoader
+# data_loader = DataLoader(dataset, batch_size=48, shuffle=True, collate_fn=collate_fn, num_workers=16)
+
+# # Start profiling
+# with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+#     for i, (spectograms, ground_truth_labels) in enumerate(data_loader):
+#         if i >= 50:  
+#             break
+
+# # Print profiler results
+# print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=30))
+

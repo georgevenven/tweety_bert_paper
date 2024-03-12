@@ -1,12 +1,13 @@
 import os
 import torch
 from data_class import SongDataSet_Image, CollateFunction
-from torch.utils.data import DataLoader
 from model import TweetyBERT
 from trainer import ModelTrainer
 from utils import detailed_count_parameters
 import json
 import shutil
+from itertools import cycle
+from torch.utils.data import DataLoader
 
 class ExperimentRunner:
     def __init__(self, device, base_save_dir='experiments'):
@@ -100,8 +101,8 @@ class ExperimentRunner:
         collate_fn = CollateFunction(segment_length=config['context'])
         train_dataset = SongDataSet_Image(config['train_dir'], num_classes=config['num_ground_truth_labels'])
         test_dataset = SongDataSet_Image(config['test_dir'], num_classes=config['num_ground_truth_labels'])
-        train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
-        test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=True, collate_fn=collate_fn, num_workers=16)
+        train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=False, collate_fn=collate_fn, num_workers=16)
+        test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=False, collate_fn=collate_fn, num_workers=16)
         
         # Initialize model
         model = TweetyBERT(

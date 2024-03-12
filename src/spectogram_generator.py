@@ -34,14 +34,24 @@ class WavtoSpec:
                     self.convert_to_spectrogram(full_path)
                     pbar.update(1)  # Update the progress bar for each file
     
-    def convert_to_spectrogram(self, file_path, min_length_ms=1000, default_sample_rate=44100):
+    def convert_to_spectrogram(self, file_path, min_length_ms=1000, default_sample_rate=50000):
+        # Canary parameters
+        # sample rate = 44100
+        # NFFT = 1024
+        # step_size = 119  
+        
+        # Budgie parameters
+        # sample rate = 20000 or 50000
+        # NFFT = 1024
+        # step_size = 250  
+
         try:
             samplerate, data = wavfile.read(file_path)
 
             # Check if the data is multichannel (e.g., stereo)
             if len(data.shape) > 1:
-                # Select one channel (e.g., the first channel)
-                data = data[:, 0]
+                # Select the right channel, channel 2
+                data = data[:, 1]
 
             # Resample the data if the samplerate does not match the default_sample_rate
             if samplerate != default_sample_rate:
@@ -66,7 +76,7 @@ class WavtoSpec:
 
             # Canary song analysis parameters
             NFFT = 1024  # Number of points in FFT
-            step_size = 119  # Step size for overlap
+            step_size = 500  # Step size for overlap
 
             # Calculate the overlap in samples
             overlap_samples = NFFT - step_size
@@ -80,15 +90,15 @@ class WavtoSpec:
             # Convert to dB
             Sxx_log = 10 * np.log10(Sxx)
 
-            # # Post-processing: Clipping and Normalization
-            # clipping_level = -2  # dB
-            # clipped_spec = np.clip(Sxx_log, a_min=clipping_level, a_max=None)
-           
             mean = Sxx_log.mean()
             std = Sxx_log.std()
 
             z_scored_spec = (Sxx_log - mean) / std
-            
+
+            # # Post-processing: Clipping and Normalization
+            # clipping_level = 0  # dB
+            # z_scored_spec = np.clip(z_scored_spec, a_min=clipping_level, a_max=None)
+
             # Define the path where the spectrogram will be saved
             spec_filename = os.path.splitext(os.path.basename(file_path))[0]
             spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
@@ -99,46 +109,6 @@ class WavtoSpec:
 
         except ValueError as e:
             print(f"Error reading {file_path}: {e}")
-
-    # def convert_to_spectrogram(self, file_path, min_length_ms=1000):
-    #     try:
-    #         samplerate, data = wavfile.read(file_path)
-    #         FS = samplerate # input
-    #         NFFT = 512
-    #         noverlap = 450  # noverlap > NFFT/2
-    #         # Create Spectrogram
-    #         spectrum, freqs, t, im = plt.specgram(data, NFFT=NFFT, Fs=FS, noverlap=noverlap,cmap='jet')
-    #         # Manual Params (can be changed)
-    #         logThresh = 0
-    #         afterThresh = 0
-    #         # Take log then delete elements below another thresh after log
-    #         #filterSpec = spectrum
-    #         filterSpec = np.log(spectrum + logThresh)
-    #         filterSpec[np.where(filterSpec < afterThresh)] = 0
-    #         # Normalize the numeric array to the [0, 1] range
-    #         normalized_array = (filterSpec - np.min(filterSpec)) / (np.max(filterSpec) - np.min(filterSpec))
-    #         print(normalized_array.shape)
-    #         # Apply the colormap to the normalized array
-    #         # rgb_array = plt.cm.get_cmap(colormap)(normalized_array)
-    #         # # Read the WAV file
-    #         # samplerate, data = wavfile.read(file_path)
-    #         # # Calculate the length of the audio file in milliseconds
-    #         # length_in_ms = (data.shape[0] / samplerate) * 1
-    #         # Assuming label is an integer or float
-    #         labels = np.full((normalized_array.shape[1],), 0)  # Adjust the label array as needed
-    #         # Define the path where the spectrogram will be saved
-    #         spec_filename = os.path.splitext(os.path.basename(file_path))[0]
-    #         spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
-    #         # Saving the spectrogram and the labels
-    #         np.savez_compressed(spec_file_path, s=normalized_array, labels=labels)
-    #         # Print out the path to the saved file
-    #         print(f"Spectrogram saved to {spec_file_path}")
-    #     except ValueError as e:
-    #         print(f"Error reading {file_path}: {e}")   
-
-    #     except ValueError as e:
-    #         print(f"Error reading {file_path}: {e}")
-
 
     def analyze_dataset(self, min_length_ms=1000, default_sample_rate=2e4):
         raw_means, raw_stds = [], []
@@ -232,7 +202,7 @@ class WavtoSpec:
         plt.colorbar(format='%+2.0f Z Scores')
         plt.show()
 
-    def plot_grid_of_spectrograms(self):
+    def plot_grid_of_spectrograms(self, min_length=2000):
         # Get a list of all '.npz' files in the destination directory
         npz_files = list(Path(self.dst_dir).glob('*.npz'))
         if len(npz_files) < 25:
@@ -254,7 +224,7 @@ class WavtoSpec:
 
             with np.load(spec_path) as data:
                 spectrogram_data = data['s']
-                if spectrogram_data.shape[1] > 2000:  # Check if it has more than 2000 time bins
+                if spectrogram_data.shape[1] > min_length:  # Check if it has more than 2000 time bins
                     selected_spec_paths.append(spec_path)  # Add to the list if it meets the criteria
 
         # Set up the subplot grid
@@ -265,7 +235,7 @@ class WavtoSpec:
             with np.load(spec_path) as data:
                 spectrogram_data = data['s']
                 # Take the second set of 1000 bins
-                spectrogram_data = spectrogram_data[:, 1000:2000]
+                spectrogram_data = spectrogram_data[:, :min_length]
 
                 # Plot the spectrogram on its respective subplot
                 ax.imshow(spectrogram_data, aspect='auto', origin='lower', cmap='viridis')
@@ -316,7 +286,7 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # # Usage:
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/dev_wav', '/media/george-vengrovski/disk2/budgie/dev_npz_carrot_method')
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/test_wav', '/media/george-vengrovski/disk2/budgie/test_spec')
 wav_to_spec.process_directory()
 # wav_to_spec.analyze_dataset()
 wav_to_spec.plot_grid_of_spectrograms()

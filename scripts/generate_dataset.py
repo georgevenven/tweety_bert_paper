@@ -19,7 +19,7 @@ class Config:
         self.test_dir = test_dir
         
 configs = [
-    Config(data_root="/media/george-vengrovski/disk2/canary_temp/combined_yarden_specs", train_dir="files/yarden_train", test_dir="files/yarden_test")
+    Config(data_root="/media/george-vengrovski/disk2/canary_yarden/combined_noclip_specs", train_dir="files/noclip_train", test_dir="files/noclip_test")
 ]
 
 # Iterate over the configurations and process

@@ -213,13 +213,18 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         ground_truth_labels = ground_truth_labels[:samples]
         spec_arr = spec_arr[:samples]
 
+    
+    print(predictions.shape)
+    print(spec_arr.shape)
+
+
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
 
-    ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
+    # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     
     # sets noise as white  
     hdbscan_labels += 1
@@ -227,15 +232,14 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     # first syllable will be black, make sure no white syllables 
     ground_truth_labels += 2
 
-
     np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
 
     # So that noise is white for HDBSCAN Plot
     cmap_hdbscan_labels = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
     cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
 
-    # So that noise is white for HDBSCAN Plot
-    cmap_ground_truth = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
+    # So that silences is black for HDBSCAN Plot
+    cmap_ground_truth = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap_ground_truth = mcolors.ListedColormap(cmap_ground_truth)
 
     # Create a figure and a 1x2 grid of subplots
@@ -462,9 +466,6 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
     ground_truth_labels = apply_windowing(ground_truth_labels.reshape(-1, 1), window_size, stride=stride, flatten_predictions=False)
 
     ground_truth_labels = ground_truth_labels.squeeze()
-
-
-    print(ground_truth_labels.shape)
     
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')

@@ -4,6 +4,8 @@ import torch
 from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 import json
+from torch.profiler import profile, record_function, ProfilerActivity
+from itertools import cycle
 
 class ModelTrainer:
     def __init__(self, model, train_loader, test_loader, optimizer, device, 
@@ -13,8 +15,8 @@ class ModelTrainer:
         self.overfit_on_batch = overfit_on_batch
         self.fixed_batch = None  # Will hold the batch data when overfitting
         self.model = model
-        self.train_loader = train_loader
-        self.test_loader = test_loader
+        self.train_iter = train_loader
+        self.test_iter = test_loader
         self.optimizer = optimizer
         self.device = device
         self.max_steps = max_steps
@@ -27,6 +29,8 @@ class ModelTrainer:
         self.save_interval = save_interval
         self.weights_save_dir = weights_save_dir
         self.experiment_dir = experiment_dir  # Assuming the experiment dir is the parent of visualizations_save_dir
+
+        self.count_reinit=0
         
         # Create directories if they do not exist
         if not os.path.exists(self.weights_save_dir):
@@ -93,8 +97,8 @@ class ModelTrainer:
     def visualize_mse(self, output, mask, spec, step):
         mask_bar_height = 15
         # Compute loss
-        _, _, _, loss_grid = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
-        loss_grid = loss_grid.cpu().numpy()  # Assuming loss_grid has shape [1, seq_len, 196]
+        # _, _, _, loss_grid = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
+        # loss_grid = loss_grid.cpu().numpy()  # Assuming loss_grid has shape [1, seq_len, 196]
         output = output.cpu().numpy()  # Assuming output has shape [1, seq_len, 196]
 
         # Process the inputs
@@ -125,12 +129,12 @@ class ModelTrainer:
         # Plot 2: Model Prediction with Mask
         axs[1].imshow(output[0].T, aspect='auto', origin='lower')
         axs[1].set_title('Model Prediction with Mask', fontsize=35, pad=20)  # Added pad for title
-        self._add_mask_overlay(axs[1], mask_np[0], loss_grid[0], mask_bar_height)
+        self._add_mask_overlay(axs[1], mask_np[0], spec_np[0], mask_bar_height)
 
-        # Plot 3: Areas of Loss with Mask
-        axs[2].imshow(loss_grid[0].T, aspect='auto', origin='lower', cmap='hot')
-        axs[2].set_title('Areas of Loss with Mask', fontsize=35, pad=20)  # Added pad for title
-        self._add_mask_overlay(axs[2], mask_np[0], loss_grid[0], mask_bar_height)
+        # # Plot 3: Areas of Loss with Mask
+        # axs[2].imshow(loss_grid[0].T, aspect='auto', origin='lower', cmap='hot')
+        # axs[2].set_title('Areas of Loss with Mask', fontsize=35, pad=20)  # Added pad for title
+        # self._add_mask_overlay(axs[2], mask_np[0], loss_grid[0], mask_bar_height)
 
         # Save the figure
         # plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.eps'), format="eps", dpi=300)
@@ -149,40 +153,29 @@ class ModelTrainer:
                 axis.add_patch(plt.Rectangle((idx, mask_bar_position), 1, mask_bar_height, 
                                             edgecolor='none', facecolor=color))
 
-    def visualize_masked_predictions(self, step, spec, label):
+    def visualize_masked_predictions(self, step, spec, output, mask, all_outputs):
         self.model.eval()
         with torch.no_grad():
-            # Forward pass through the model
-            output, mask, _, all_outputs = self.model.train_forward(spec)
-
             self.visualize_mse(output=output, mask=mask, spec=spec, step=step)
-
             # Create a large canvas of intermediate outputs
             self.create_large_canvas(all_outputs)
-
             # Save the large canvas
             # plt.savefig(os.path.join(self.predictions_subfolder_path, f'Intermediate Outputs_{step}.eps'), format="eps", dpi=300)
             plt.savefig(os.path.join(self.predictions_subfolder_path, f'Intermediate Outputs_{step}.png'), format="png")
             plt.close()
                 
-    def validate_model(self, step, test_iter):
+    def validate_model(self, step, spec):
         self.model.eval()
         with torch.no_grad():
-            try:
-                spec, label = next(test_iter)
-            except StopIteration:
-                test_iter = iter(self.test_loader)
-                spec, label = next(test_iter)
-
             # Fetch the next batch from the validation set
             spec = spec.to(self.device)
-            label = label.to(self.device)
-
-            if step % self.eval_interval == 0 or step == 0:
-                self.visualize_masked_predictions(step, spec, label)
 
             # Forward pass
-            output, mask, *rest = self.model.train_forward(spec)
+            output, mask, _, intermediate_outputs = self.model.train_forward(spec)
+
+            if step % self.eval_interval == 0 or step == 0:
+                self.visualize_masked_predictions(step, spec, mask=mask, output=output, all_outputs=intermediate_outputs)
+
 
             # Calculate loss and accuracy
             val_loss, masked_seq_acc, unmasked_seq_acc, *rest = self.model.mse_loss(predictions=output, spec=spec , mask=mask)
@@ -223,15 +216,19 @@ class ModelTrainer:
             steps_since_improvement = 0
             best_val_loss = float('inf')
 
-        train_iter = iter(self.train_loader)
-        test_iter = iter(self.test_loader)
+        train_iter = iter(self.train_iter)
+        test_iter =  iter(self.test_iter)
 
+        # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
         while step < self.max_steps:
-            try:
-                spec, ground_truth = next(train_iter)
-            except StopIteration:
-                train_iter = iter(self.train_loader)
-                spec, ground_truth = next(train_iter)
+            # try:
+            spec, ground_truth = next(train_iter)
+            validation_spec, validation_ground_truth = next(test_iter)
+        
+            # # skip step if something goes wrong 
+            # except Exception as e:
+            #     # This block will execute if there is any exception in the try block
+            #     print(f"An error occurred: {e}")
 
             spec = spec.to(self.device)
             ground_truth = ground_truth.to(self.device)
@@ -250,7 +247,7 @@ class ModelTrainer:
             raw_loss_list.append(loss.item())
 
             # Perform validation and accumulate metrics
-            val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step, test_iter)
+            val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step, spec=validation_spec)
             raw_val_loss_list.append(val_loss)
             raw_masked_seq_acc_list.append(avg_masked_seq_acc)
             raw_unmasked_seq_acc_list.append(avg_unmasked_seq_acc)
@@ -276,8 +273,8 @@ class ModelTrainer:
                     f'Smoothed Unmasked Seq Acc: {smoothed_unmasked_seq_acc:.4f}')
 
                 # Update best_val_loss and steps_since_improvement
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
+                if smoothed_val_loss < best_val_loss:
+                    best_val_loss = smoothed_val_loss
                     steps_since_improvement = 0
                 else:
                     steps_since_improvement += 1
@@ -299,7 +296,10 @@ class ModelTrainer:
                 }
                 self.save_model(step, current_training_stats)
 
-            step += 1
+                step += 1
+        # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        # print("")
+        # print(f"number of reinit of dataloader {self.count_reinit}")
 
     def plot_results(self, save_plot=True, config=None):
         # Load the consolidated training statistics

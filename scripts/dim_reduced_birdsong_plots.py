@@ -10,8 +10,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
-weights_path = "experiments/pause_test/saved_weights/model_step_20.pth"
-config_path = "experiments/pause_test/config.json"
+weights_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_loss/saved_weights/model_step_4000.pth"
+config_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_loss/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -22,15 +22,15 @@ from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metr
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="files/yarden_test",
-samples=5e3, 
+data_dir="files/llb3_test",
+samples=5e4, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=1, 
+layer_index=2, 
 dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="cmap_test",
+save_name="full_freq_model_size_5e5_attention_output",
 )
 
 # # Raw Spectogram 
