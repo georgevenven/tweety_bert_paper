@@ -10,27 +10,78 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 
-weights_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_loss/saved_weights/model_step_4000.pth"
-config_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_loss/config.json"
+weights_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_normal_size/saved_weights/model_step_27500.pth"
+config_path = "experiments/Yarden_Spec_3birds_alpha1_1e-3_normal_size/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
   
 from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metrics, sliding_window_umap
 
+# # TweetyBERT
+# plot_umap_projection(
+# model=model, 
+# device=device, 
+# data_dir="files/yarden_llb3_test",
+# samples=5e5, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=2, 
+# dict_key="V", 
+# context=1000, 
+# raw_spectogram=False,
+# save_dict_for_analysis = False,
+# save_name="yarden_normal_size_V_2_5e5",
+# )
+
 # TweetyBERT
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="files/llb3_test",
-samples=5e4, 
+data_dir="files/yarden_llb3_test",
+samples=5e5, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=2, 
 dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="full_freq_model_size_5e5_attention_output",
+save_name="yarden_normal_size_attention_2_5e5",
+)
+
+weights_path = "experiments/Yarden_Spec_3birds_alpha1_5e-4_loss_double_model_size/saved_weights/model_step_19000.pth"
+config_path = "experiments/Yarden_Spec_3birds_alpha1_5e-4_loss_double_model_size/config.json"
+
+model = load_model(config_path, weights_path)
+model = model.to(device)
+
+# TweetyBERT
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="files/yarden_llb3_test",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=2, 
+dict_key="V", 
+context=1000, 
+raw_spectogram=False,
+save_dict_for_analysis = False,
+save_name="yarden_double_size_V_2_5e5",
+)
+
+# TweetyBERT
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="files/yarden_llb3_test",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=False,
+save_dict_for_analysis = False,
+save_name="yarden_double_size_attention_2_5e5",
 )
 
 # # Raw Spectogram 

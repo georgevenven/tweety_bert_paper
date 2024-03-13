@@ -75,8 +75,8 @@ class WavtoSpec:
             data = filtfilt(b, a, data)
 
             # Canary song analysis parameters
-            NFFT = 1024  # Number of points in FFT
-            step_size = 500  # Step size for overlap
+            NFFT = 512  # Number of points in FFT
+            step_size = 380  # Step size for overlap
 
             # Calculate the overlap in samples
             overlap_samples = NFFT - step_size
@@ -286,7 +286,7 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # # Usage:
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/test_wav', '/media/george-vengrovski/disk2/budgie/test_spec')
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/raw_data/Box1_mic1_CU38', '/media/george-vengrovski/disk2/budgie/raw_data/Box1_mic1_CU38_specs')
 wav_to_spec.process_directory()
 # wav_to_spec.analyze_dataset()
 wav_to_spec.plot_grid_of_spectrograms()

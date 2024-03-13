@@ -6,7 +6,7 @@ import matplotlib.colors as mcolors
 import re 
 from collections import Counter
 import umap
-from data_class import SongDataSet_Image
+from data_class import SongDataSet_Image, CollateFunction
 from torch.utils.data import DataLoader
 import glasbey
 from sklearn.metrics.cluster import completeness_score
@@ -14,6 +14,7 @@ import seaborn as sns
 import pandas as pd
 from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
 import pickle
+from itertools import cycle
 
 def average_colors_per_sample(ground_truth_labels, cmap):
     """
@@ -66,8 +67,9 @@ def syllable_to_phrase_labels(arr, silence=-1):
 
     return new_arr
 
-def load_data( data_dir, context=1000, psuedo_labels_generated=True):
-    dataset = SongDataSet_Image(data_dir, num_classes=196)
+def load_data( data_dir, context=1000):
+    dataset = SongDataSet_Image(data_dir, num_classes=50)
+    # collate_fn = CollateFunction(segment_length=context)
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
     return loader 
 
@@ -102,10 +104,9 @@ def generate_hdbscan_labels(array, min_samples=1, min_cluster_size=5000):
 
     return labels
 
-def plot_umap_projection(model, device, data_dir="test_llb16",
-                         remove_silences=False, samples=100, file_path='category_colors.pkl', 
+def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, file_path='category_colors.pkl', 
                          layer_index=None, dict_key=None, time_bins_per_umap_point=100, 
-                         context=1000, save_name=None, raw_spectogram=False, save_dict_for_analysis=False, compute_svm=False, color_scheme="Syllable"):
+                         context=1000, save_name=None, raw_spectogram=False, save_dict_for_analysis=False):
     predictions_arr = []
     ground_truth_labels_arr = []
     spec_arr = [] 
@@ -117,17 +118,19 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
     samples = int(samples)
     total_samples = 0
 
-    data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
+    data_loader = load_data(data_dir=data_dir, context=context)
     data_loader_iter = iter(data_loader)
 
     while total_samples < samples:
         try:
             # Retrieve the next batch
             data, ground_truth_label = next(data_loader_iter)
-
+            print(f"from dataloader {data.shape}")
+            
             # if smaller than context window, go to next song
-            if data.shape[1] < context:
+            if data.shape[-2] < context:
                 continue 
+
             # because network is made to work with batched data, we unsqueeze a dim and transpose the last two dims (usually handled by collate fn)
             data = data.unsqueeze(0).permute(0,1,3,2)
 
@@ -162,6 +165,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
             break
 
         if raw_spectogram == False:
+            print(f"after processing {data.shape}")
+
             _, layers = model.inference_forward(data.to(device))
 
             layer_output_dict = layers[layer_index]
@@ -193,6 +198,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
 
         spec_arr.append(spec.cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
+
+        print(spec.shape[0])
         
         total_samples += spec.shape[0]
 
@@ -213,11 +220,8 @@ def plot_umap_projection(model, device, data_dir="test_llb16",
         ground_truth_labels = ground_truth_labels[:samples]
         spec_arr = spec_arr[:samples]
 
+    print(f"predictions shape {predictions.shape}")
     
-    print(predictions.shape)
-    print(spec_arr.shape)
-
-
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 

@@ -6,46 +6,33 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.profiler import profile, record_function, ProfilerActivity
+import random
 
 class SongDataSet_Image(Dataset):
     def __init__(self, file_dir, num_classes=40):
         self.file_paths = [os.path.join(file_dir, file) for file in os.listdir(file_dir)]
         self.num_classes = num_classes
-        self.shuffle_indices()
-        self.access_count = 0
 
-    def shuffle_indices(self):
-        self.indices = np.random.permutation(len(self.file_paths))
-
-    def __getitem__(self, _):
-        # Access data in a cyclic and shuffled manner
-        actual_idx = self.indices[self.access_count % len(self.file_paths)]
-        self.access_count += 1
-
-        # Reshuffle after a complete pass through the dataset
-        if self.access_count % len(self.file_paths) == 0:
-            self.shuffle_indices()
-
-        # file_path = self.file_paths[actual_idx]
-        # data = np.load(file_path, allow_pickle=True)
-        # spectogram = data['s']
-
-
-        spectogram = np.zeros((513, 800), dtype=float)
-        # spectogram = spectogram[20:216]
-
-        # Remove when free from Yarden's Spec Gen Method 
+    def __getitem__(self, idx):
+        # Randomly select an index for each access
+        random_idx = random.randint(0, len(self.file_paths) - 1)
+        file_path = self.file_paths[random_idx]
+        
+        # Load data and preprocess
+        data = np.load(file_path, allow_pickle=True)
+        spectogram = data['s']
+        
         # Z-score normalization
-        # mean = spectogram.mean()
-        # std = spectogram.std()
-        # spectogram = (spectogram - mean) / std
-
-        # # Check if 'labels' key exists in data, if not, create a one-dimensional array
-        # if 'labels' in data and data['labels'] is not None:
-        #     ground_truth_labels = data['labels']
-        # else:
-        ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)  # all zeros represent the lack of labels
-
+        mean = spectogram.mean()
+        std = spectogram.std()
+        spectogram = (spectogram - mean) / std
+        
+        # Process labels
+        if 'labels' in data and data['labels'] is not None:
+            ground_truth_labels = data['labels']
+        else:
+            # Create dummy labels as an example if labels are not present
+            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
         ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
         spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
@@ -55,7 +42,7 @@ class SongDataSet_Image(Dataset):
 
     def __len__(self):
         # Return an arbitrarily large number to simulate an infinite dataset
-        return int(1e12)  # or sys.maxsize for the largest possible int
+        return int(1e12)
     
 class CollateFunction:
     def __init__(self, segment_length=1000):

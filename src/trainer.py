@@ -221,14 +221,14 @@ class ModelTrainer:
 
         # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
         while step < self.max_steps:
-            # try:
-            spec, ground_truth = next(train_iter)
-            validation_spec, validation_ground_truth = next(test_iter)
+            try:
+                spec, ground_truth = next(train_iter)
+                validation_spec, validation_ground_truth = next(test_iter)
         
-            # # skip step if something goes wrong 
-            # except Exception as e:
-            #     # This block will execute if there is any exception in the try block
-            #     print(f"An error occurred: {e}")
+            except Exception as e:
+                # This block will execute if there is any exception in the try block
+                print(f"An error occurred: {e}")
+                continue
 
             spec = spec.to(self.device)
             ground_truth = ground_truth.to(self.device)
@@ -296,7 +296,7 @@ class ModelTrainer:
                 }
                 self.save_model(step, current_training_stats)
 
-                step += 1
+            step += 1
         # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
         # print("")
         # print(f"number of reinit of dataloader {self.count_reinit}")

@@ -31,12 +31,12 @@ def label_spectrogram(npz_dir, annotation_csv, default_sample_rate=44100, NFFT=1
                 label_matrix[onset_index:offset_index] = label_value
 
             # Overwrite the old npz file with the new attribute
-            np.savez(file_path, **data, labels=label_matrix)
+            np.savez(file_path, s=spectrogram_data, labels=label_matrix)
 
             # For demonstration, just print out confirmation
             print(f"Labels added for {npz_file}: Label Matrix Shape {label_matrix.shape}, Spectrogram Shape {spectrogram_data.shape}")
 
 # Example usage
-npz_directory = "files/no_clip_test_llb3"
-annotation_csv_path = '/media/george-vengrovski/disk2/canary_temp/llb3_data/llb3_annot.csv'
+npz_directory = "files/noclip_llb3_test"
+annotation_csv_path = '/media/george-vengrovski/disk2/canary_yarden/llb3_data/llb3_annot.csv'
 label_spectrogram(npz_directory, annotation_csv_path)
