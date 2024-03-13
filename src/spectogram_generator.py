@@ -11,6 +11,7 @@ from scipy.signal import windows, spectrogram, ellip, filtfilt
 import shutil
 from pathlib import Path
 from scipy.signal import resample
+import itertools
 
 class WavtoSpec:
     def __init__(self, src_dir, dst_dir):
@@ -246,6 +247,74 @@ class WavtoSpec:
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.show()
 
+    def compare_spectrogram_permutations(self, param_dict):
+        """
+        Generates and plots spectrograms for a single random .wav file using permutations of NFFT and step_size parameters.
+        Only the first 1000 time bins of each spectrogram are plotted, with the row parameters (NFFT and step size)
+        displayed on the left-hand side of each row.
+
+        Parameters:
+        param_dict (dict): A dictionary with 'NFFT' and 'step_size' as keys and lists of their possible values.
+        """
+        # Randomly select 1 .wav file
+        wav_files = [f for f in Path(self.src_dir).glob('**/*.wav')]
+        selected_file = random.choice(wav_files)
+
+        # Generate all permutations of NFFT and step_size
+        permutations = list(itertools.product(param_dict['NFFT'], param_dict['step_size']))
+
+        # Set up the plot
+        fig, axs = plt.subplots(len(permutations), 1, figsize=(10, 5 * len(permutations)), squeeze=False)
+        
+        for i, (nfft, step_size) in enumerate(permutations):
+            # Generate the spectrogram for the current permutation and file
+            spectrogram_data = self.generate_spectrogram_data(str(selected_file), nfft, step_size)
+            spectrogram_data = spectrogram_data[:, :1000]  # Select the first 1000 time bins
+
+            # Plot the spectrogram
+            ax = axs[i, 0]
+            img = ax.imshow(spectrogram_data, aspect='auto', origin='lower', cmap='viridis')
+            ax.set_ylabel(f'NFFT: {nfft}\nStep Size: {step_size}')
+            ax.set_xlabel('Time Bins')
+            ax.axis('on')
+
+            # Adding a colorbar to each subplot
+            fig.colorbar(img, ax=ax)
+
+        plt.tight_layout()
+        plt.show()
+
+    def generate_spectrogram_data(self, file_path, nfft, step_size):
+        """
+        Generates spectrogram data for a given .wav file, NFFT, and step size.
+
+        Parameters:
+        file_path (str): Path to the .wav file.
+        nfft (int): Number of FFT points.
+        step_size (int): Step size for the FFT overlap.
+
+        Returns:
+        ndarray: The spectrogram data.
+        """
+        # This is a simplified version of convert_to_spectrogram method
+        samplerate, data = wavfile.read(file_path)
+        if len(data.shape) > 1:
+            data = data[:, 1]  # Select the right channel if stereo
+
+        # Use a Gaussian window
+        window = windows.gaussian(nfft, std=nfft/8)
+
+        # Calculate the overlap in samples
+        overlap_samples = nfft - step_size
+
+        # Compute the spectrogram with the Gaussian window
+        f, t, Sxx = spectrogram(data, fs=samplerate, window=window, nperseg=nfft, noverlap=overlap_samples)
+
+        # Convert to dB
+        Sxx_log = 10 * np.log10(Sxx)
+
+        return Sxx_log
+
 # Helper function to find the next power of two
 def nextpow2(x):
     return np.ceil(np.log2(np.abs(x))).astype('int')
@@ -286,9 +355,15 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # # Usage:
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/raw_data/Box1_mic1_CU38', '/media/george-vengrovski/disk2/budgie/raw_data/Box1_mic1_CU38_specs')
-wav_to_spec.process_directory()
-# wav_to_spec.analyze_dataset()
-wav_to_spec.plot_grid_of_spectrograms()
-# # wav_to_spec.save_npz()
-# # wav_to_spec.visualize_random_spectrogram()
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/llb3_test_wav_delete_this', '/media/george-vengrovski/disk2/canary_yarden/llb3_test_spec_delete_this')
+# wav_to_spec.process_directory()
+# # wav_to_spec.analyze_dataset()
+# wav_to_spec.plot_grid_of_spectrograms()
+
+
+
+param_dict = {
+    'NFFT': [256], 
+    'step_size': [128, 256, 511] 
+}
+wav_to_spec.compare_spectrogram_permutations(param_dict)

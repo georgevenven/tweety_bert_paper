@@ -96,17 +96,14 @@ class ModelTrainer:
 
     def visualize_mse(self, output, mask, spec, step):
         mask_bar_height = 15
-        # Compute loss
-        # _, _, _, loss_grid = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
-        # loss_grid = loss_grid.cpu().numpy()  # Assuming loss_grid has shape [1, seq_len, 196]
         output = output.cpu().numpy()  # Assuming output has shape [1, seq_len, 196]
 
         # Process the inputs
         spec_np = spec.squeeze(1).cpu().numpy()
         mask_np = mask[:, 0, :].cpu().numpy()
 
-        # Prepare plots
-        fig, axs = plt.subplots(3, 1, figsize=(30, 30))  # 3 rows, 1 column
+        # Prepare plots with 2 rows instead of 3
+        fig, axs = plt.subplots(2, 1, figsize=(30, 20))  # Adjusted figsize for 2 plots
         axs = axs.ravel()
 
         # Labels for X and Y axes
@@ -131,13 +128,7 @@ class ModelTrainer:
         axs[1].set_title('Model Prediction with Mask', fontsize=35, pad=20)  # Added pad for title
         self._add_mask_overlay(axs[1], mask_np[0], spec_np[0], mask_bar_height)
 
-        # # Plot 3: Areas of Loss with Mask
-        # axs[2].imshow(loss_grid[0].T, aspect='auto', origin='lower', cmap='hot')
-        # axs[2].set_title('Areas of Loss with Mask', fontsize=35, pad=20)  # Added pad for title
-        # self._add_mask_overlay(axs[2], mask_np[0], loss_grid[0], mask_bar_height)
-
         # Save the figure
-        # plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.eps'), format="eps", dpi=300)
         plt.savefig(os.path.join(self.predictions_subfolder_path, f'MSE_Visualization_{step}.png'), format="png")
         plt.close(fig)
 

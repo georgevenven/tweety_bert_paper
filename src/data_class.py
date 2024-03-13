@@ -27,12 +27,12 @@ class SongDataSet_Image(Dataset):
         std = spectogram.std()
         spectogram = (spectogram - mean) / std
         
-        # Process labels
-        if 'labels' in data and data['labels'] is not None:
-            ground_truth_labels = data['labels']
-        else:
-            # Create dummy labels as an example if labels are not present
-            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
+        # # Process labels
+        # if 'labels' in data and data['labels'] is not None:
+        #     ground_truth_labels = data['labels']
+        # else:
+        #     # Create dummy labels as an example if labels are not present
+        ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
         ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
         spectogram = torch.from_numpy(spectogram).float().permute(1, 0)

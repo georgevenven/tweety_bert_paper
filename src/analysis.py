@@ -125,7 +125,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         try:
             # Retrieve the next batch
             data, ground_truth_label = next(data_loader_iter)
-            print(f"from dataloader {data.shape}")
             
             # if smaller than context window, go to next song
             if data.shape[-2] < context:
@@ -165,8 +164,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
             break
 
         if raw_spectogram == False:
-            print(f"after processing {data.shape}")
-
             _, layers = model.inference_forward(data.to(device))
 
             layer_output_dict = layers[layer_index]
@@ -198,8 +195,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
         spec_arr.append(spec.cpu().numpy())
         ground_truth_labels_arr.append(ground_truth_label.cpu().numpy())
-
-        print(spec.shape[0])
         
         total_samples += spec.shape[0]
 
@@ -221,7 +216,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         spec_arr = spec_arr[:samples]
 
     print(f"predictions shape {predictions.shape}")
-    
+
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 

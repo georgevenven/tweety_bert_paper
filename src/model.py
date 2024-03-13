@@ -177,7 +177,7 @@ class TweetyBERT(nn.Module):
 
         self.pos_enc = PositionalEncoding(d_transformer)
         # transformer
-        self.transformerProjection = nn.Linear(512, d_transformer)
+        self.transformerProjection = nn.Linear(256, d_transformer)
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
 
