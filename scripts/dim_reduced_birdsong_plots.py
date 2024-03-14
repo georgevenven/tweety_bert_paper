@@ -63,8 +63,8 @@ save_name="Budgie_Test",
 # save_name="yarden_normal_size_attention_2_5e5",
 # )
 
-weights_path = "experiments/Noclip_Spec_3birds_alpha1_5e-4_loss_double_model_size/saved_weights/model_step_15000.pth"
-config_path = "experiments/Noclip_Spec_3birds_alpha1_5e-4_loss_double_model_size/config.json"
+weights_path = "experiments/Budgie_Test_10_Mask/saved_weights/model_step_25000.pth"
+config_path = "experiments/Budgie_Test_10_Mask/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -73,15 +73,15 @@ model = model.to(device)
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="files/noclip_llb3_test",
+data_dir="files/noclip_test",
 samples=5e4, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=2, 
-dict_key="attention_output", 
+dict_key="V", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="noclip_double_size_V_2_5e5",
+save_name="budgie_test",
 )
 
 # # TweetyBERT

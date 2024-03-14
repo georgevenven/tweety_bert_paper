@@ -101,8 +101,8 @@ class CustomEncoderBlock(nn.Module):
 
         # MLP / Feed-forward network
         ff_output = self.feed_forward1(mlp_input_norm)
-        ff_output_relu = F.relu(ff_output)  # Output after ReLU
-        ff_output = self.feed_forward2(ff_output_relu)
+        ff_output_gelu = F.gelu(ff_output)  # Output after ReLU
+        ff_output = self.feed_forward2(ff_output_gelu)
 
         # Apply dropout to the feed-forward output, then add the residual
         ff_output = self.dropout(ff_output)
@@ -115,7 +115,7 @@ class CustomEncoderBlock(nn.Module):
             'V': attn_result['V'],
             'attention_output': attn_output,
             'intermediate_residual_stream': x,
-            'feed_forward_output_relu': ff_output_relu,
+            'feed_forward_output_gelu': ff_output_gelu,
             'feed_forward_output': ff_output
             # 'attention_graph': attention_graph
         }

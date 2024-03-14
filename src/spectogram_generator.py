@@ -35,77 +35,58 @@ class WavtoSpec:
                     self.convert_to_spectrogram(full_path)
                     pbar.update(1)  # Update the progress bar for each file
     
-    def convert_to_spectrogram(self, file_path, min_length_ms=1000, default_sample_rate=50000):
-        # Canary parameters
-        # sample rate = 44100
-        # NFFT = 1024
-        # step_size = 119  
-        
-        # Budgie parameters
-        # sample rate = 20000 or 50000
-        # NFFT = 1024
-        # step_size = 250  
-
+    def convert_to_spectrogram(self, file_path, min_length_ms=1000, default_sample_rate=50000, max_timebins=5000):
         try:
             samplerate, data = wavfile.read(file_path)
 
             # Check if the data is multichannel (e.g., stereo)
             if len(data.shape) > 1:
-                # Select the right channel, channel 2
-                data = data[:, 1]
+                data = data[:, 1]  # Select the right channel, channel 2
 
-            # Resample the data if the samplerate does not match the default_sample_rate
+            # Resample the data if necessary
             if samplerate != default_sample_rate:
-                # print(f"Resampling from {samplerate}Hz to {default_sample_rate}Hz.")
-                # Calculate the number of samples after resampling
                 num_samples = int(len(data) * default_sample_rate / samplerate)
-                # Resample the data
                 data = resample(data, num_samples)
-                # Update the samplerate to the default_sample_rate
                 samplerate = default_sample_rate
 
-            # Calculate the length of the audio file in milliseconds
-            length_in_ms = (data.shape[0] / samplerate) * 1000
-
-            if length_in_ms < min_length_ms:
-                print(f"File {file_path} is below the length threshold and will be skipped.")
-                return  # Skip processing this file
-
-            # High-pass filter (adjust the filtering frequency as necessary)
+            # High-pass filter
             b, a = ellip(5, 0.2, 40, 500/(samplerate/2), 'high')
             data = filtfilt(b, a, data)
 
-            # Canary song analysis parameters
-            NFFT = 512  # Number of points in FFT
-            step_size = 380  # Step size for overlap
+            NFFT = 512  
+            step_size = 511 
 
-            # Calculate the overlap in samples
             overlap_samples = NFFT - step_size
-
-            # Use a Gaussian window
             window = windows.gaussian(NFFT, std=NFFT/8)
-
-            # Compute the spectrogram with the Gaussian window
             f, t, Sxx = spectrogram(data, fs=samplerate, window=window, nperseg=NFFT, noverlap=overlap_samples)
-
-            # Convert to dB
+            
+            # Convert to dB and apply z-scoring
             Sxx_log = 10 * np.log10(Sxx)
-
             mean = Sxx_log.mean()
             std = Sxx_log.std()
+            Sxx_z_scored = (Sxx_log - mean) / std
 
-            z_scored_spec = (Sxx_log - mean) / std
+            # Check if the spectrogram exceeds the max_timebins limit
+            if Sxx_z_scored.shape[1] > max_timebins:
+                # Calculate the number of parts needed
+                num_parts = int(np.ceil(Sxx_z_scored.shape[1] / max_timebins))
+                for part in range(num_parts):
+                    start_bin = part * max_timebins
+                    end_bin = min((part + 1) * max_timebins, Sxx_z_scored.shape[1])
+                    spec_part = Sxx_z_scored[:, start_bin:end_bin]
 
-            # # Post-processing: Clipping and Normalization
-            # clipping_level = 0  # dB
-            # z_scored_spec = np.clip(z_scored_spec, a_min=clipping_level, a_max=None)
+                    # Define modified title for each part
+                    spec_filename = os.path.splitext(os.path.basename(file_path))[0] + f'_part{part+1}'
+                    spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
 
-            # Define the path where the spectrogram will be saved
-            spec_filename = os.path.splitext(os.path.basename(file_path))[0]
-            spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
+                    # Save each part
+                    np.savez_compressed(spec_file_path, s=spec_part)
+            else:
+                # If the spectrogram does not exceed the limit, save it normally
+                spec_filename = os.path.splitext(os.path.basename(file_path))[0]
+                spec_file_path = os.path.join(self.dst_dir, spec_filename + '.npz')
+                np.savez_compressed(spec_file_path, s=Sxx_z_scored)
 
-            # Saving the spectrogram and the labels
-            np.savez_compressed(spec_file_path, s=z_scored_spec)
             plt.close()
 
         except ValueError as e:
@@ -355,15 +336,15 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 
 # # Usage:
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/llb3_test_wav_delete_this', '/media/george-vengrovski/disk2/canary_yarden/llb3_test_spec_delete_this')
-# wav_to_spec.process_directory()
-# # wav_to_spec.analyze_dataset()
-# wav_to_spec.plot_grid_of_spectrograms()
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/raw_data/ssd_combined', '/media/george-vengrovski/disk2/budgie/raw_data/ssd_combined_specs')
+wav_to_spec.process_directory()
+# wav_to_spec.analyze_dataset()
+wav_to_spec.plot_grid_of_spectrograms()
 
 
 
-param_dict = {
-    'NFFT': [256], 
-    'step_size': [128, 256, 511] 
-}
-wav_to_spec.compare_spectrogram_permutations(param_dict)
+# param_dict = {
+#     'NFFT': [256], 
+#     'step_size': [128, 256, 511] 
+# }
+# wav_to_spec.compare_spectrogram_permutations(param_dict)
