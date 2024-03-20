@@ -18,8 +18,8 @@ configurations = [
         {
         "experiment_name": "Goliath-0-No_WeightDecay",
         "continue_training": False,
-        "train_dir": "files/budgie_train",
-        "test_dir": "files/budgie_test",
+        "train_dir": "/media/george-vengrovski/disk1/combined_song_data_1_train",
+        "test_dir": "/media/george-vengrovski/disk1/combined_song_data_1_test",
         "batch_size": 16,
         "d_transformer": 384,   
         "nhead_transformer": 8,
@@ -45,8 +45,8 @@ configurations = [
         {
         "experiment_name": "Goliath-0-No_WeightDecay",
         "continue_training": False,
-        "train_dir": "files/budgie_train",
-        "test_dir": "files/budgie_test",
+        "train_dir": "/media/george-vengrovski/disk1/combined_song_data_1_train",
+        "test_dir": "/media/george-vengrovski/disk1/combined_song_data_1_test",
         "batch_size": 16,
         "d_transformer": 384,   
         "nhead_transformer": 8,

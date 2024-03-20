@@ -19,7 +19,7 @@ class Config:
         self.test_dir = test_dir
         
 configs = [
-    Config(data_root="/media/george-vengrovski/disk2/budgie/test_spec", train_dir="files/noclip_train", test_dir="files/noclip_test")
+    Config(data_root="/media/george-vengrovski/disk1/combined_song_data_1", train_dir="/media/george-vengrovski/disk1/combined_song_data_1_train", test_dir="/media/george-vengrovski/disk1/combined_song_data_1_test")
 ]
 
 # Iterate over the configurations and process
