@@ -41,6 +41,10 @@ class SongDataSet_Image(Dataset):
             # Recursively call __getitem__ with a different index
             return self.__getitem__(random.randint(0, len(self.file_paths) - 1))
     
+    def __len__(self):
+        # Return an arbitrarily large number to simulate an infinite dataset
+        return int(1e12)
+
 class CollateFunction:
     def __init__(self, segment_length=1000):
         self.segment_length = segment_length
