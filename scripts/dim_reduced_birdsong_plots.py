@@ -13,8 +13,8 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metrics, sliding_window_umap
 
 
-weights_path = "experiments/Combined_Big_Weight_Decay_.0005/saved_weights/model_step_20000.pth"
-config_path = "experiments/Combined_Big_Weight_Decay_.0005/config.json"
+weights_path = "experiments/Goliath-0-No_weight_decay_a1/saved_weights/model_step_5000.pth"
+config_path = "experiments/Goliath-0-No_weight_decay_a1/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -26,12 +26,12 @@ device=device,
 data_dir="files/budgie_test_subset",
 samples=5e4, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=0, 
-dict_key="V", 
+layer_index=-1, 
+dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
-save_dict_for_analysis = False,
-save_name="V0_output_w_decay_budgie_combined",
+save_dict_for_analysis = True,
+save_name="attn-1_weight_decay",
 )
 
 # sliding_window_umap(

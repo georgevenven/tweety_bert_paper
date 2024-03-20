@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 
-def label_spectrogram(npz_dir, annotation_csv, default_sample_rate=44100, NFFT=1024, step_size=119):
+def label_spectrogram(npz_dir, annotation_csv, default_sample_rate=44100, NFFT=1024, step_size=512):
     # Load the annotations CSV
     annotations = pd.read_csv(annotation_csv)
 
@@ -37,6 +37,6 @@ def label_spectrogram(npz_dir, annotation_csv, default_sample_rate=44100, NFFT=1
             print(f"Labels added for {npz_file}: Label Matrix Shape {label_matrix.shape}, Spectrogram Shape {spectrogram_data.shape}")
 
 # Example usage
-npz_directory = "files/noclip_llb3_test"
+npz_directory = "/media/george-vengrovski/disk1/combined_llb3_test"
 annotation_csv_path = '/media/george-vengrovski/disk2/canary_yarden/llb3_data/llb3_annot.csv'
 label_spectrogram(npz_directory, annotation_csv_path)

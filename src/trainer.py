@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import json
 from torch.profiler import profile, record_function, ProfilerActivity
 from itertools import cycle
+from torch.cuda.amp import autocast, GradScaler
 
 class ModelTrainer:
     def __init__(self, model, train_loader, test_loader, optimizer, device, 
@@ -190,6 +191,8 @@ class ModelTrainer:
     def train(self, continue_training=False, training_stats=None, last_step=0):
         step = last_step + 1 if continue_training else 0
 
+        scaler = GradScaler()
+
         if continue_training:
             # Ensure lists are being used for these statistics
             raw_loss_list = training_stats.get('training_loss', [])
@@ -226,19 +229,23 @@ class ModelTrainer:
 
             self.model.train()
 
-            output, mask, *rest = self.model.train_forward(spec)
-            loss, *rest = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
+            with autocast():
+                output, mask, *rest = self.model.train_forward(spec)
+                loss, *rest = self.model.mse_loss(predictions=output, spec=spec, mask=mask)
 
             self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(self.optimizer)
+            scaler.update()
             self.scheduler.step()
 
             # Accumulate raw losses
             raw_loss_list.append(loss.item())
 
             # Perform validation and accumulate metrics
-            val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step, spec=validation_spec)
+            with autocast():
+                val_loss, avg_masked_seq_acc, avg_unmasked_seq_acc = self.validate_model(step, spec=validation_spec)
+                
             raw_val_loss_list.append(val_loss)
             raw_masked_seq_acc_list.append(avg_masked_seq_acc)
             raw_unmasked_seq_acc_list.append(avg_unmasked_seq_acc)

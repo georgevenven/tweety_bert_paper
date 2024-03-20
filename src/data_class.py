@@ -23,9 +23,19 @@ class SongDataSet_Image(Dataset):
             data = np.load(file_path, allow_pickle=True)
             spectogram = data['s']
 
+            if spectogram.shape[0] < 513:
+                # Calculate the padding size
+                pad_size = 513 - spectogram.shape[0]
+
+                # Pad the spectrogram with zeros at the top
+                spectogram = np.pad(spectogram, ((pad_size, 0), (0, 0)), mode='constant', constant_values=0)
+            elif spectogram.shape[0] > 513:
+                # Truncate the spectrogram to 513 frequency bins
+                spectogram = spectogram[:513, :]
+
             # # Process labels
             # if 'labels' in data and data['labels'] is not None:
-            #     ground_truth_labels = np.array(data['labels'], dtype=int)
+            # ground_truth_labels = np.array(data['labels'], dtype=int)
             # else:
             #     # If 'labels' is None or not present, assign a default value or handle it accordingly
             ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
@@ -71,26 +81,26 @@ class CollateFunction:
                 end = start + self.segment_length     
 
                 spectogram = spectogram[start:end]
-                ground_truth_label = ground_truth_label[start:end]
+                # ground_truth_label = ground_truth_label[start:end]
 
             # Pad with 0s if shorter
             if spectogram.shape[0] < self.segment_length:
                 pad_amount = self.segment_length - spectogram.shape[0]
                 spectogram = F.pad(spectogram, (0, 0, 0, pad_amount), 'constant', 0)
-                ground_truth_label = F.pad(ground_truth_label, (0, 0, 0, pad_amount), 'constant', 0)  # Adjusted padding for labels
+                # ground_truth_label = F.pad(ground_truth_label, (0, 0, 0, pad_amount), 'constant', 0)  # Adjusted padding for labels
 
             # Append the processed tensors to the lists
             spectograms_processed.append(spectogram)
-            ground_truth_labels_processed.append(ground_truth_label)
+            # ground_truth_labels_processed.append(ground_truth_label)
 
         # Stack tensors along a new dimension to match the BERT input size.
         spectograms = torch.stack(spectograms_processed, dim=0)
-        ground_truth_labels = torch.stack(ground_truth_labels_processed, dim=0)
+        # ground_truth_labels = torch.stack(ground_truth_labels_processed, dim=0)
 
         # Final reshape for model
         spectograms = spectograms.unsqueeze(1).permute(0,1,3,2)
 
-        return spectograms, ground_truth_labels
+        return spectograms, spectograms
 
 
 # # Initialize your dataset and collate_fn
