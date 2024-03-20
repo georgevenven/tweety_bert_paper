@@ -17,32 +17,29 @@ class SongDataSet_Image(Dataset):
         # Randomly select an index for each access
         random_idx = random.randint(0, len(self.file_paths) - 1)
         file_path = self.file_paths[random_idx]
-        
-        # Load data and preprocess
-        data = np.load(file_path, allow_pickle=True)
-        spectogram = data['s']
-        
-        # # Z-score normalization
-        mean = spectogram.mean()
-        std = spectogram.std()
-        spectogram = (spectogram - mean) / std
-        
-        # # Process labels
-        # if 'labels' in data and data['labels'] is not None:
-        #     ground_truth_labels = np.array(data['labels'], dtype=int)
-        # else:
-        #     # If 'labels' is None or not present, assign a default value or handle it accordingly
-        ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
-        ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
-        spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
-        ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
+        try:
+            # Load data and preprocess
+            data = np.load(file_path, allow_pickle=True)
+            spectogram = data['s']
 
-        return spectogram, ground_truth_labels
+            # # Process labels
+            # if 'labels' in data and data['labels'] is not None:
+            #     ground_truth_labels = np.array(data['labels'], dtype=int)
+            # else:
+            #     # If 'labels' is None or not present, assign a default value or handle it accordingly
+            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
-    def __len__(self):
-        # Return an arbitrarily large number to simulate an infinite dataset
-        return int(1e12)
+            ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
+            spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
+            ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
+
+            return spectogram, ground_truth_labels
+
+        except Exception as e:
+            print(f"Error loading file {file_path}: {str(e)}")
+            # Recursively call __getitem__ with a different index
+            return self.__getitem__(random.randint(0, len(self.file_paths) - 1))
     
 class CollateFunction:
     def __init__(self, segment_length=1000):

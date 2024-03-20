@@ -75,7 +75,7 @@ class WavtoSpec:
                 song_info[song_name] = song_ms
         return song_info
 
-    def convert_to_spectrogram(self, file_path, song_info, min_length_ms=1000, default_sample_rate=50000, max_timebins=5000):
+    def convert_to_spectrogram(self, file_path, song_info, min_length_ms=1000, default_sample_rate=44100, max_timebins=5000):
         offset_constant = .001
         try:
             # Open the audio file using soundfile
@@ -445,7 +445,7 @@ def copy_yarden_data(src_dirs, dst_dir):
 
 # # Usage:
 # csv_dir only populated if u want to use it 
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/raw_data/ssd_combined', '/media/george-vengrovski/disk2/budgie/raw_data/ssd_combined_specs')
+wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/zebra_finch/combined_wav', '/media/george-vengrovski/disk2/zebra_finch/combined_spec')
 wav_to_spec.process_directory()
 # # # wav_to_spec.analyze_dataset()
 # wav_to_spec.plot_grid_of_spectrograms()
@@ -454,6 +454,6 @@ wav_to_spec.process_directory()
 
 # param_dict = {
 #     'NFFT': [512, 1024], 
-#     'step_size': [256, 511] 
+#     'step_size': [256, 512] 
 # }
 # wav_to_spec.compare_spectrogram_permutations(param_dict)
