@@ -19,7 +19,7 @@ class Config:
         self.test_dir = test_dir
         
 configs = [
-    Config(data_root="/media/george-vengrovski/disk2/budgie/raw_data/ssd_combined_specs", train_dir="files/budgie_train", test_dir="files/budgie_test")
+    Config(data_root="/media/george-vengrovski/disk2/budgie/test_spec", train_dir="files/noclip_train", test_dir="files/noclip_test")
 ]
 
 # Iterate over the configurations and process
@@ -30,4 +30,4 @@ for config in configs:
     processor.clear_directory(config.test_dir)
 
     # if over 10k timebins, split the file 
-    processor.generate_train_test(file_min_size=1e3, file_limit_size=1e4)
+    processor.generate_train_test()

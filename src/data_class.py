@@ -22,19 +22,19 @@ class SongDataSet_Image(Dataset):
         data = np.load(file_path, allow_pickle=True)
         spectogram = data['s']
         
-        # Z-score normalization
+        # # Z-score normalization
         mean = spectogram.mean()
         std = spectogram.std()
         spectogram = (spectogram - mean) / std
         
         # # Process labels
         # if 'labels' in data and data['labels'] is not None:
-        #     ground_truth_labels = data['labels']
+        #     ground_truth_labels = np.array(data['labels'], dtype=int)
         # else:
-        #     # Create dummy labels as an example if labels are not present
+        #     # If 'labels' is None or not present, assign a default value or handle it accordingly
         ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
-        ground_truth_labels = torch.tensor(ground_truth_labels, dtype=torch.int64).squeeze(0)
+        ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
         spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
         ground_truth_labels = F.one_hot(ground_truth_labels, num_classes=self.num_classes).float()
 

@@ -171,13 +171,18 @@ class TweetyBERT(nn.Module):
 
         # TweetyNet Front End
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
-        self.pool1 = nn.MaxPool2d(kernel_size=(8, 1), stride=(8, 1))
+        self.pool1 = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
-        self.pool2 = nn.MaxPool2d(kernel_size=(8, 1), stride=(8, 1))
+        self.pool2 = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
+        self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
+        self.pool3 = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
+        self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
+        self.pool4 = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
+
 
         self.pos_enc = PositionalEncoding(d_transformer)
         # transformer
-        self.transformerProjection = nn.Linear(256, d_transformer)
+        self.transformerProjection = nn.Linear(2048, d_transformer)
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
 
@@ -223,7 +228,13 @@ class TweetyBERT(nn.Module):
         x = self.pool1(x)
         x = F.gelu(self.conv2(x))
         x = self.pool2(x)
+        x = F.gelu(self.conv3(x))
+        x = self.pool3(x)
+        x = F.gelu(self.conv4(x))
+        x = self.pool4(x)
+
         x = x.flatten(1,2)
+
         return x
 
     def transformer_forward(self, x):

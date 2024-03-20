@@ -255,9 +255,7 @@ class DataPlotter(QWidget):
 
         self.behavePlot.addItem(self.region)
 
-
         # consider where    
-
         self.embMaxX = np.max(self.emb[:,0])
         self.embMaxY = np.max(self.emb[:,1])
 
@@ -267,9 +265,6 @@ class DataPlotter(QWidget):
 
         self.embPlot.setXRange(self.embMinX - 1, self.embMaxX + 1, padding=0)
         self.embPlot.setYRange(self.embMinY - 1, self.embMaxY + 1, padding=0)
-
-
-
 
     def plot_file(self,filePath):
 

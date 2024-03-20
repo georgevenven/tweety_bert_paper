@@ -231,7 +231,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     # first syllable will be black, make sure no white syllables 
     ground_truth_labels += 2
 
-    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels)
+    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr)
 
     # So that noise is white for HDBSCAN Plot
     cmap_hdbscan_labels = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
@@ -366,17 +366,18 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
     samples = int(samples)
     total_samples = 0
 
-    data_loader = load_data(data_dir=data_dir, context=context, psuedo_labels_generated=True)
+    data_loader = load_data(data_dir=data_dir, context=context)
     data_loader_iter = iter(data_loader)
 
     while total_samples < samples:
         try:
             # Retrieve the next batch
             data, ground_truth_label = next(data_loader_iter)
-
+            
             # if smaller than context window, go to next song
-            if data.shape[1] < context:
+            if data.shape[-2] < context:
                 continue 
+
             # because network is made to work with batched data, we unsqueeze a dim and transpose the last two dims (usually handled by collate fn)
             data = data.unsqueeze(0).permute(0,1,3,2)
 
@@ -460,6 +461,8 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
         predictions = predictions[:samples]
         ground_truth_labels = ground_truth_labels[:samples]
 
+    print(predictions.shape)
+
     # Ensure predictions are in the correct shape (num_samples, features) before windowing
     predictions = apply_windowing(predictions, window_size, stride=stride, flatten_predictions=True)
     ground_truth_labels = apply_windowing(ground_truth_labels.reshape(-1, 1), window_size, stride=stride, flatten_predictions=False)
@@ -471,6 +474,8 @@ def sliding_window_umap(model, device, data_dir="test_llb16",
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+
+    np.savez(f"save_dir", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr)
     
     # Assuming 'glasbey' is a predefined object with a method 'extend_palette'
     cmap = glasbey.extend_palette(["#000000"], palette_size=30)
