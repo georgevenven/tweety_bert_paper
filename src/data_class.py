@@ -33,12 +33,19 @@ class SongDataSet_Image(Dataset):
                 # Truncate the spectrogram to 513 frequency bins
                 spectogram = spectogram[:513, :]
 
+            # Calculate mean and standard deviation of the spectrogram
+            spec_mean = np.mean(spectogram)
+            spec_std = np.std(spectogram)
+
+            # Z-score the spectrogram
+            spectogram = (spectogram - spec_mean) / spec_std
+
             # # Process labels
             # if 'labels' in data and data['labels'] is not None:
-            # ground_truth_labels = np.array(data['labels'], dtype=int)
+            ground_truth_labels = np.array(data['labels'], dtype=int)
             # else:
             #     # If 'labels' is None or not present, assign a default value or handle it accordingly
-            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
+            # ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
             ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
             spectogram = torch.from_numpy(spectogram).float().permute(1, 0)

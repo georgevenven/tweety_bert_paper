@@ -202,6 +202,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
     spec_arr = np.concatenate(spec_arr, axis=0)
 
+
     if not raw_spectogram:
         predictions = np.concatenate(predictions_arr, axis=0)
     else:
@@ -216,7 +217,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         spec_arr = spec_arr[:samples]
 
     print(f"predictions shape {predictions.shape}")
-
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 

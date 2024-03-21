@@ -2,6 +2,7 @@ imgs
 files
 experiments
 *.pyc
+*.zip
 *.png
 *.pdf
 /train

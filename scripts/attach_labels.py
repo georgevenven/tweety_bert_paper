@@ -24,17 +24,22 @@ def label_spectrogram(npz_dir, annotation_csv, default_sample_rate=44100, NFFT=1
 
             # Loop over each annotation and fill in the label matrix
             for _, row in relevant_annotations.iterrows():
-                onset_index = int(row['onset_Hz'] // step_size)  # Convert onset sample to spectrogram time frame
-                offset_index = int(row['offset_Hz'] // step_size)  # Convert offset sample to spectrogram time frame
+                onset_seconds = row['onset_Hz'] / default_sample_rate
+                offset_seconds = row['offset_Hz'] / default_sample_rate
+                onset_index = int(onset_seconds * default_sample_rate // step_size)
+                offset_index = int(offset_seconds * default_sample_rate // step_size)
                 label_value = int(row['label'])
+                
                 # Fill the label matrix with the label value within the event's time frame
                 label_matrix[onset_index:offset_index] = label_value
 
             # Overwrite the old npz file with the new attribute
+            print(label_matrix)
             np.savez(file_path, s=spectrogram_data, labels=label_matrix)
 
             # For demonstration, just print out confirmation
             print(f"Labels added for {npz_file}: Label Matrix Shape {label_matrix.shape}, Spectrogram Shape {spectrogram_data.shape}")
+
 
 # Example usage
 npz_directory = "/media/george-vengrovski/disk1/combined_llb3_test"

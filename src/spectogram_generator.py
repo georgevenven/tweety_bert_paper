@@ -16,6 +16,15 @@ import csv
 import sys
 import multiprocessing
 import soundfile as sf
+import wave
+import gc
+from memory_profiler import profile
+import psutil
+
+def get_memory_usage():
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    return memory_info.rss / (1024 * 1024)  # Memory usage in MB
 
 class WavtoSpec:
     def __init__(self, src_dir, dst_dir, csv_file_dir=None):
@@ -75,195 +84,104 @@ class WavtoSpec:
                 song_info[song_name] = song_ms
         return song_info
 
-    def convert_to_spectrogram(self, file_path, song_info, min_length_ms=1000, default_sample_rate=20000, max_timebins=5000):
+    #@profile
+    def convert_to_spectrogram(self, file_path, song_info, max_timebins=5000, chunk_size=52428800):
         offset_constant = .001
-        try:
-            # Open the audio file using soundfile
-            with sf.SoundFile(file_path, 'r') as audio_file:
-                samplerate = audio_file.samplerate
-                chunk_size = 1000000  # Adjust the chunk size as needed
+        # print(f"Memory usage before processing: {get_memory_usage()} MB")
 
-                # Process the audio file in chunks
+        try:
+            with sf.SoundFile(file_path, 'r') as wav_file:
+                samplerate = wav_file.samplerate
+                num_channels = wav_file.channels
+
+                # Process the audio data in chunks to reduce memory usage
                 data = []
                 while True:
-                    chunk = audio_file.read(chunk_size)
+                    chunk = wav_file.read(chunk_size)
                     if len(chunk) == 0:
                         break
+                    # Normalize and append chunk data
+                    chunk = (chunk * 32767).astype(np.int16)
+                    if num_channels > 1:
+                        chunk = chunk[:, 0]  # Use the first channel if multi-channel audio
                     data.append(chunk)
+                data = np.concatenate(data)  # Combine chunks into a single array
 
-                data = np.concatenate(data)
+                ## This causes memory leaks!! uncomment only if problem is understood 
+                # # Resample if necessary
+                # if samplerate != default_sample_rate:
+                #     num_samples = int(len(data) * default_sample_rate / samplerate)
+                #     data = resample(data, num_samples)
+                #     samplerate = default_sample_rate
 
-            # Check if the data is multichannel (e.g., stereo)
-            if len(data.shape) > 1:
-                data = data[:, 1]  # Select the right channel, channel 2
+                song_name = os.path.splitext(os.path.basename(file_path))[0]
 
-            # Resample the data if necessary
-            if samplerate != default_sample_rate:
-                num_samples = int(len(data) * default_sample_rate / samplerate)
-                data = resample(data, num_samples)
-                samplerate = default_sample_rate
+                # Define spectrogram parameters
+                NFFT = 1024  
+                step_size = 512
+                overlap_samples = NFFT - step_size
 
-            NFFT = 1024  
-            step_size = 512 
+                segments_to_process = self.get_segments_to_process(song_name, song_info, data, samplerate)
 
-            overlap_samples = NFFT - step_size
-
-            song_name = os.path.splitext(os.path.basename(file_path))[0]
-            print(song_name)
-
-            if self.use_csv and song_name in song_info:
-                print("found_song")
-                song_segments = song_info[song_name]
-                for segment in song_segments:
-                    start_ms, end_ms = segment
-                    start_sample = int(start_ms * samplerate / 1000)
-                    end_sample = int(end_ms * samplerate / 1000)
+                for start_sample, end_sample in segments_to_process:
                     segment_data = data[start_sample:end_sample]
-
-                    # Generate spectrogram for the segment
+                    # Generate and process spectrogram for the segment
                     f, t, Sxx = spectrogram(segment_data, fs=samplerate, nperseg=NFFT, noverlap=overlap_samples)
-
-                    # Convert to dB and apply z-scoring
                     Sxx_log = 10 * np.log10(Sxx + offset_constant)
+                    Sxx_z_scored = self.z_score_spectrogram(Sxx_log)
 
-                    mean = Sxx_log.mean()
-                    std = Sxx_log.std()
-                    Sxx_z_scored = (Sxx_log - mean) / std
+                    self.save_spectrogram_parts(song_name, Sxx_z_scored, start_sample, samplerate, max_timebins=max_timebins)
 
-                    # Check if the spectrogram exceeds the max_timebins limit
-                    if Sxx_z_scored.shape[1] > max_timebins:
-                        # Calculate the number of parts needed
-                        num_parts = int(np.ceil(Sxx_z_scored.shape[1] / max_timebins))
-                        for part in range(num_parts):
-                            start_bin = part * max_timebins
-                            end_bin = min((part + 1) * max_timebins, Sxx_z_scored.shape[1])
-                            spec_part = Sxx_z_scored[:, start_bin:end_bin]
+                    # Delete intermediate arrays
+                    del segment_data, Sxx, Sxx_log, Sxx_z_scored
 
-                            # Define modified title for each part
-                            segment_filename = f"{song_name}_{int(start_ms)}_{int(end_ms)}_part{part+1}"
-                            segment_file_path = os.path.join(self.dst_dir, segment_filename + '.npz')
+                # Delete data array
+                del data
 
-                            # Save each part
-                            np.savez_compressed(segment_file_path, s=spec_part)
-                    else:
-                        # If the spectrogram does not exceed the limit, save it normally
-                        segment_filename = f"{song_name}_{int(start_ms)}_{int(end_ms)}"
-                        segment_file_path = os.path.join(self.dst_dir, segment_filename + '.npz')
-                        np.savez_compressed(segment_file_path, s=Sxx_z_scored)
-            elif not self.use_csv:
-                # If use_csv is False or the song is not found in the CSV file, treat the entire WAV file as a song segment
-                print(f"Treating the entire WAV file as a song segment: {song_name}")
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")
 
-                # Generate spectrogram for the entire WAV file
-                f, t, Sxx = spectrogram(data, fs=samplerate, nperseg=NFFT, noverlap=overlap_samples)
+        finally:
+            plt.close('all')  # Ensure all plots are closed
+            gc.collect()  # Force garbage collection
+            # print(f"Memory usage after processing: {get_memory_usage()} MB")
 
-                # Convert to dB and apply z-scoring
-                Sxx_log = 10 * np.log10(Sxx + offset_constant)
+    #@profile
+    def get_segments_to_process(self, song_name, song_info, data, samplerate):
+        segments_to_process = []
+        if self.use_csv and song_name in song_info:
+            song_segments = song_info[song_name]
+            for start_ms, end_ms in song_segments:
+                start_sample = int(start_ms * samplerate / 1000)
+                end_sample = int(end_ms * samplerate / 1000)
+                segments_to_process.append((start_sample, end_sample))
+        else:
+            # If not using CSV, or song not found, process the entire file as one segment
+            segments_to_process.append((0, len(data)))
+        return segments_to_process
 
-                mean = Sxx_log.mean()
-                std = Sxx_log.std()
-                Sxx_z_scored = (Sxx_log - mean) / std
+    def z_score_spectrogram(self, Sxx_log):
+        mean = Sxx_log.mean()
+        std = Sxx_log.std()
+        Sxx_z_scored = (Sxx_log - mean) / std
+        return Sxx_z_scored
 
-                # Check if the spectrogram exceeds the max_timebins limit
-                if Sxx_z_scored.shape[1] > max_timebins:
-                    # Calculate the number of parts needed
-                    num_parts = int(np.ceil(Sxx_z_scored.shape[1] / max_timebins))
-                    for part in range(num_parts):
-                        start_bin = part * max_timebins
-                        end_bin = min((part + 1) * max_timebins, Sxx_z_scored.shape[1])
-                        spec_part = Sxx_z_scored[:, start_bin:end_bin]
+    #@profile
+    def save_spectrogram_parts(self, song_name, Sxx_z_scored, start_sample, samplerate, max_timebins=5000):
+        if Sxx_z_scored.shape[1] > max_timebins:
+            num_parts = int(np.ceil(Sxx_z_scored.shape[1] / max_timebins))
+            for part in range(num_parts):
+                start_bin = part * max_timebins
+                end_bin = min((part + 1) * max_timebins, Sxx_z_scored.shape[1])
+                spec_part = Sxx_z_scored[:, start_bin:end_bin]
+                segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}_part{part+1}.npz"
+                segment_file_path = os.path.join(self.dst_dir, segment_filename)
+                np.savez_compressed(segment_file_path, s=spec_part)
+        else:
+            segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}.npz"
+            segment_file_path = os.path
 
-                        # Define modified title for each part
-                        segment_filename = f"{song_name}_part{part+1}"
-                        segment_file_path = os.path.join(self.dst_dir, segment_filename + '.npz')
 
-                        # Save each part
-                        np.savez_compressed(segment_file_path, s=spec_part)
-                else:
-                    # If the spectrogram does not exceed the limit, save it normally
-                    segment_filename = f"{song_name}"
-                    segment_file_path = os.path.join(self.dst_dir, segment_filename + '.npz')
-                    np.savez_compressed(segment_file_path, s=Sxx_z_scored)
-
-            else:
-                print("no song found, skipping file")
-
-            plt.close()
-
-        except ValueError as e:
-            print(f"Error reading {file_path}: {e}")
-        except MemoryError as e:
-            print(f"Memory error occurred while processing {file_path}: {e}")
-            print("Skipping this file and moving on to the next.")
-
-    def analyze_dataset(self, min_length_ms=1000, default_sample_rate=2e4):
-        raw_means, raw_stds = [], []
-        spec_means, spec_stds = [], []
-
-        total_files = sum(1 for _, _, files in os.walk(self.src_dir) for file in files if file.lower().endswith('.wav'))
-
-        with tqdm(total=total_files, desc="Analyzing WAV files") as pbar:
-            for root, dirs, files in os.walk(self.src_dir):
-                for file in files:
-                    if file.lower().endswith('.wav'):
-                        file_path = os.path.join(root, file)
-                        try:
-                            samplerate, data = wavfile.read(file_path)
-                            if len(data.shape) > 1:
-                                data = data[:, 0]
-                            if samplerate != default_sample_rate:
-                                num_samples = int(len(data) * default_sample_rate / samplerate)
-                                data = resample(data, num_samples)
-                                samplerate = default_sample_rate
-
-                            b, a = ellip(5, 0.2, 40, 500/(samplerate/2), 'high')
-                            filtered_data = filtfilt(b, a, data)
-                            window = windows.gaussian(1024, std=1024/8)
-                            f, t, Sxx = spectrogram(filtered_data, fs=samplerate, window=window, nperseg=1024, noverlap=1024 - 119)
-                            Sxx_log = 10 * np.log10(Sxx)
-                            mean, std = Sxx_log.mean(), Sxx_log.std()
-
-                            # Store means and stds for each file
-                            raw_means.append(np.mean(data))
-                            raw_stds.append(np.std(data))
-                            spec_means.append(mean)
-                            spec_stds.append(std)
-
-                        except ValueError as e:
-                            print(f"Error reading {file_path}: {e}")
-                        finally:
-                            pbar.update(1)
-
-        # Plotting for means
-        fig, axs = plt.subplots(2, 2, figsize=(12, 12))
-
-        # Raw values mean plot
-        axs[0, 0].hist(raw_means, bins=30, color='blue', alpha=0.7, edgecolor='black')
-        axs[0, 0].set_title('Distribution of Raw Audio Means')
-        axs[0, 0].set_xlabel('Mean Value')
-        axs[0, 0].set_ylabel('Frequency')
-
-        # Spectrogram values mean plot
-        axs[1, 0].hist(spec_means, bins=30, color='green', alpha=0.7, edgecolor='black')
-        axs[1, 0].set_title('Distribution of Spectrogram Means')
-        axs[1, 0].set_xlabel('Mean Value')
-        axs[1, 0].set_ylabel('Frequency')
-
-        # Plotting for standard deviations
-        # Raw values std plot
-        axs[0, 1].hist(raw_stds, bins=30, color='blue', alpha=0.7, edgecolor='black')
-        axs[0, 1].set_title('Distribution of Raw Audio Standard Deviations')
-        axs[0, 1].set_xlabel('Standard Deviation')
-        axs[0, 1].set_ylabel('Frequency')
-
-        # Spectrogram values std plot
-        axs[1, 1].hist(spec_stds, bins=30, color='green', alpha=0.7, edgecolor='black')
-        axs[1, 1].set_title('Distribution of Spectrogram Standard Deviations')
-        axs[1, 1].set_xlabel('Standard Deviation')
-        axs[1, 1].set_ylabel('Frequency')
-
-        plt.tight_layout()
-        plt.show()
 
     def visualize_random_spectrogram(self):
         # Get a list of all '.npz' files in the destination directory
@@ -288,7 +206,7 @@ class WavtoSpec:
         plt.colorbar(format='%+2.0f Z Scores')
         plt.show()
 
-    def plot_grid_of_spectrograms(self, min_length=500):
+    def plot_grid_of_spectrograms(self, min_length=100):
         # Get a list of all '.npz' files in the destination directory
         npz_files = list(Path(self.dst_dir).glob('*.npz'))
         if len(npz_files) < 25:
@@ -442,18 +360,20 @@ def copy_yarden_data(src_dirs, dst_dir):
         shutil.copy2(src_file_path, dst_file_path)
         print(f"Copied {file} to {dst_dir}")
 
+if __name__ == '__main__':
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/T5_ssd_combined', '/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs')
+    wav_to_spec.process_directory()
 
-# # Usage:
-# csv_dir only populated if u want to use it 
-wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/warble_wav', '/media/george-vengrovski/disk2/budgie/warble_spec')
-wav_to_spec.process_directory()
-# # # wav_to_spec.analyze_dataset()
-# wav_to_spec.plot_grid_of_spectrograms()
+    # # Usage:
+    # csv_dir only populated if u want to use it 
+
+    # # # wav_to_spec.analyze_dataset()
+    wav_to_spec.plot_grid_of_spectrograms()
 
 
 
-# param_dict = {
-#     'NFFT': [512, 1024], 
-#     'step_size': [256, 512] 
-# }
-# wav_to_spec.compare_spectrogram_permutations(param_dict)
+    # param_dict = {
+    #     'NFFT': [512, 1024], 
+    #     'step_size': [256, 512] 
+    # }
+    # wav_to_spec.compare_spectrogram_permutations(param_dict)
