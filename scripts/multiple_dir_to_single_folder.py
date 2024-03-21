@@ -48,12 +48,11 @@ def combine_directories(src_dirs, dst_dir):
 
 if __name__ == "__main__":
     src_dirs = [
-        "/media/george-vengrovski/disk2/bengalese-finch/bengalese-finch_nickle_dave/combined_specs",
-        "/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs",
-        "/media/george-vengrovski/disk2/budgie/ssd_combined_specs",
-        "/media/george-vengrovski/disk2/canary/sorted_1/combined_spec",
-        "/media/george-vengrovski/disk2/canary/sorted_2/combined_specs",
-        "/media/george-vengrovski/disk2/canary_yarden/combined_noclip_specs",
+        # "/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs",
+        # "/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs",
+        # "/media/george-vengrovski/disk2/canary/sorted_1/combined_spec",
+        # "/media/george-vengrovski/disk2/canary/sorted_2/combined_specs",
+        # "/media/george-vengrovski/disk2/canary_yarden/combined_noclip_specs",
         "/media/george-vengrovski/disk2/zebra_finch/combined_spec"
     ]
     dst_dir = "/media/george-vengrovski/disk1/combined_song_data_1"

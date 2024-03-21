@@ -179,9 +179,8 @@ class WavtoSpec:
                 np.savez_compressed(segment_file_path, s=spec_part)
         else:
             segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}.npz"
-            segment_file_path = os.path
-
-
+            segment_file_path = os.path.join(self.dst_dir, segment_filename)
+            np.savez_compressed(segment_file_path, s=Sxx_z_scored)
 
     def visualize_random_spectrogram(self):
         # Get a list of all '.npz' files in the destination directory
@@ -228,23 +227,26 @@ class WavtoSpec:
 
             with np.load(spec_path) as data:
                 spectrogram_data = data['s']
-                if spectrogram_data.shape[1] > min_length:  # Check if it has more than 2000 time bins
+                if spectrogram_data.shape[1] > min_length:  # Check if it has more than min_length time bins
                     selected_spec_paths.append(spec_path)  # Add to the list if it meets the criteria
 
         # Set up the subplot grid
-        fig, axes = plt.subplots(nrows=5, ncols=5, figsize=(20, 10))
+        fig, axes = plt.subplots(nrows=5, ncols=5, figsize=(20, 20))
         fig.suptitle('5 x 5 Grid of Random Spectrograms', fontsize=16)
 
         for ax, spec_path in zip(axes.flatten(), selected_spec_paths):
             with np.load(spec_path) as data:
                 spectrogram_data = data['s']
-                # Take the second set of 1000 bins
+                # Take the first set of min_length bins
                 spectrogram_data = spectrogram_data[:, :min_length]
 
                 # Plot the spectrogram on its respective subplot
-                ax.imshow(spectrogram_data, aspect='auto', origin='lower', cmap='viridis')
+                img = ax.imshow(spectrogram_data, aspect='auto', origin='lower', cmap='viridis')
                 ax.set_title(spec_path.stem, fontsize=8)
                 ax.axis('off')  # Hide axes for better visualization
+
+                # Create a color bar for the current subplot
+                fig.colorbar(img, ax=ax, format='%+2.0f dB')
 
         # Adjust layout to prevent overlap
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -361,7 +363,9 @@ def copy_yarden_data(src_dirs, dst_dir):
         print(f"Copied {file} to {dst_dir}")
 
 if __name__ == '__main__':
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/T5_ssd_combined', '/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs')
+    # wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_wav', '/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs')
+    # wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/zebra_finch/combined_wav', '/media/george-vengrovski/disk2/zebra_finch/combined_specs')
     wav_to_spec.process_directory()
 
     # # Usage:
