@@ -367,12 +367,30 @@ if __name__ == '__main__':
     # wav_to_spec.process_directory()
     wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/zebra_finch/combined_wav', '/media/george-vengrovski/disk2/zebra_finch/combined_specs')
     wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/combined_wav', '/media/george-vengrovski/disk2/canary_yarden/combined_no_clip_specs')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary/sorted_2/combined_wav', '/media/george-vengrovski/disk2/canary/sorted_2/combined_specs')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary/sorted_1/combined_wav', '/media/george-vengrovski/disk2/canary/sorted_1/combined_spec')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/warble_wav', '/media/george-vengrovski/disk2/budgie/warble_spec')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/T5_ssd_combined', '/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/pair_wav', '/media/george-vengrovski/disk2/budgie/pair_spec')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_wav', '/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/bengalese-finch/bengalese-finch_nickle_dave/combined_wav', '/media/george-vengrovski/disk2/bengalese-finch/bengalese-finch_nickle_dave/combined_specs')
+    wav_to_spec.process_directory()
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/bengalese-finch/3470165/combined_wav', '/media/george-vengrovski/disk2/bengalese-finch/3470165/combined_specs')
+    wav_to_spec.process_directory()
 
     # # Usage:
     # csv_dir only populated if u want to use it 
 
     # # # wav_to_spec.analyze_dataset()
-    wav_to_spec.plot_grid_of_spectrograms()
+    # wav_to_spec.plot_grid_of_spectrograms()
 
 
 
