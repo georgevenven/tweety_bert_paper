@@ -27,6 +27,9 @@ def k_fold_validation(src, params):
     # Create k-fold split
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
 
+    # Extract the name of the source directory for folder naming
+    src_dir_name = os.path.basename(src)
+
     # Generate folders for each subset percentage
     for subset_percentage in subset_percentages:
         print(f"Subset Percentage: {subset_percentage}")
@@ -46,9 +49,9 @@ def k_fold_validation(src, params):
             train_files = [npz_files[i] for i in train_indices]
             val_files = [npz_files[i] for i in val_indices]
 
-            # Create train and validation directories
-            train_dir = f"files/llb3_train_{subset_percentage}_fold{fold}_train"
-            val_dir = f"files/llb3_train_{subset_percentage}_fold{fold}_val"
+            # Create train and validation directories using the source directory name
+            train_dir = f"files/{src_dir_name}_train_{subset_percentage}_fold{fold}_train"
+            val_dir = f"files/{src_dir_name}_train_{subset_percentage}_fold{fold}_val"
 
             # Copy train files to train directory
             os.makedirs(train_dir, exist_ok=True)
@@ -65,9 +68,9 @@ def k_fold_validation(src, params):
                 shutil.copy2(src_path, dst_path)
 
 # Usage
-src = "files/llb3_train"
+src = "/media/george-vengrovski/disk2/canary_yarden/llb3_npz_files"
 params = {
     'k': 5,
-    'subset_percentages': [0.01, 0.1]
+    'subset_percentages': [0.0003, 0.003, 0.03, 0.3] # 1 song, 10 songs, etc
 }
 k_fold_validation(src, params)

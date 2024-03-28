@@ -9,20 +9,21 @@ from torch.profiler import profile, record_function, ProfilerActivity
 import random
 
 class SongDataSet_Image(Dataset):
-    def __init__(self, file_dir, num_classes=40):
+    def __init__(self, file_dir, num_classes=40, infinite_loader=True):
         self.file_paths = [os.path.join(file_dir, file) for file in os.listdir(file_dir)]
         self.num_classes = num_classes
+        self.infinite_loader = infinite_loader
 
     def __getitem__(self, idx):
-        # Randomly select an index for each access
-        random_idx = random.randint(0, len(self.file_paths) - 1)
-        file_path = self.file_paths[random_idx]
+        if self.infinite_loader:
+            # Randomly select an index for each access in infinite loader mode
+            idx = random.randint(0, len(self.file_paths) - 1)
+        file_path = self.file_paths[idx]
 
         try:
             # Load data and preprocess
             data = np.load(file_path, allow_pickle=True)
             spectogram = data['s']
-
 
             if spectogram.shape[0] < 513:
                 # Calculate the padding size
@@ -34,15 +35,14 @@ class SongDataSet_Image(Dataset):
                 # Truncate the spectrogram to 513 frequency bins
                 spectogram = spectogram[:513, :]
 
-            # # # # Calculate mean and standard deviation of the spectrogram
+            # Calculate mean and standard deviation of the spectrogram
             spec_mean = np.mean(spectogram)
             spec_std = np.std(spectogram)
 
             # Z-score the spectrogram
             spectogram = (spectogram - spec_mean) / spec_std
 
-            # # # # # Process labels
-            # # # # if 'labels' in data and data['labels'] is not None:
+            # Process labels
             ground_truth_labels = np.array(data['labels'], dtype=int)
             # # else:
             #     # If 'labels' is None or not present, assign a default value or handle it accordingly
@@ -56,12 +56,18 @@ class SongDataSet_Image(Dataset):
 
         except Exception as e:
             print(f"Error loading file {file_path}: {str(e)}")
-            # Recursively call __getitem__ with a different index
-            return self.__getitem__(random.randint(0, len(self.file_paths) - 1))
+            # Recursively call __getitem__ with a different index if in infinite loader mode
+            if self.infinite_loader:
+                return self.__getitem__(random.randint(0, len(self.file_paths) - 1))
+            else:
+                raise e
     
     def __len__(self):
-        # Return an arbitrarily large number to simulate an infinite dataset
-        return int(1e12)
+        if self.infinite_loader:
+            # Return an arbitrarily large number to simulate an infinite dataset
+            return int(1e12)
+        else:
+            return len(self.file_paths)
 
 class CollateFunction:
     def __init__(self, segment_length=1000):

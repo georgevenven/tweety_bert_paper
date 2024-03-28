@@ -159,7 +159,7 @@ class PositionalEncoding(torch.nn.Module):
         return x + self.pe[:, :x.size(1), :]
 
 class TweetyBERT(nn.Module):
-    def __init__(self, d_transformer, nhead_transformer, num_freq_bins, num_labels, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 1000, pos_enc_type="relative"):
+    def __init__(self, d_transformer, nhead_transformer, num_freq_bins, num_labels, dropout=0.1, transformer_layers=3, dim_feedforward=128, m = 33, p = 0.01, alpha = 1, length = 500, pos_enc_type="relative"):
         super(TweetyBERT, self).__init__()
         self.num_labels = num_labels
         self.dropout = dropout
@@ -168,6 +168,8 @@ class TweetyBERT(nn.Module):
         self.alpha = alpha 
         self.d_transformer = d_transformer
         self.pos_enc_type = pos_enc_type
+        self.context = length 
+        self.num_freq_bins = num_freq_bins
 
         # TweetyNet Front End
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
