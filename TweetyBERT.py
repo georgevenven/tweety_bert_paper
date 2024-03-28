@@ -16,10 +16,10 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 configurations = [
         {
-        "experiment_name": "Goliath-0-No_weight_decay_a1_fp16",
+        "experiment_name": "Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std",
         "continue_training": False,
-        "train_dir": "/media/george-vengrovski/disk1/combined_song_data_1_train",
-        "test_dir": "/media/george-vengrovski/disk1/combined_song_data_1_test",
+        "train_dir": "/media/george-vengrovski/disk1/multispecies_data_set_train",
+        "test_dir": "/media/george-vengrovski/disk1/multispecies_data_set_test",
         "batch_size": 52,
         "d_transformer": 384,   
         "nhead_transformer": 8,
@@ -27,11 +27,11 @@ configurations = [
         "dropout": 0.2,
         "dim_feedforward": 1536,
         "transformer_layers": 6,
-        "m": 25,
+        "m": 100,
         "p": 0.01,
         "alpha": 1,
         "pos_enc_type": "relative",
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "max_steps": 5e6,
         "eval_interval": 500,
         "save_interval": 1000,
@@ -43,10 +43,11 @@ configurations = [
         "num_ground_truth_labels": 50
         }
         # {
-        # "experiment_name": "Goliath-0-No_weight_decay_a1",
+        # "experiment_name": "Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation",
         # "continue_training": True,
-        # "max_steps": 5e5,
+        # "max_steps": 1,
         # "eval_interval": 500,
+        # "patience": 800,
         # },
 ]
 

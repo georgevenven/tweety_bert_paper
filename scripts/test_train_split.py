@@ -2,16 +2,17 @@ import os
 import shutil
 import random
 
-def split_dataset(folder_path, train_ratio, train_folder_dest, test_folder_dest):
+def split_dataset(folder_path, train_ratio, train_folder_dest, test_folder_dest, move_files=False):
     """
     Splits the npz files in the given folder into train and test sets based on the specified ratio
-    and copies them to specified train and test destination folders.
+    and either copies or moves them to specified train and test destination folders based on the move_files flag.
 
     Parameters:
     folder_path (str): The path to the folder containing the dataset.
     train_ratio (float): The ratio of npz files to be included in the train set.
     train_folder_dest (str): The path to the destination train folder.
     test_folder_dest (str): The path to the destination test folder.
+    move_files (bool): If True, files will be moved instead of copied. Defaults to False.
     """
     # Create train and test directories in the specified destination folders
     os.makedirs(train_folder_dest, exist_ok=True)
@@ -30,14 +31,22 @@ def split_dataset(folder_path, train_ratio, train_folder_dest, test_folder_dest)
     train_files = all_files[:train_size]
     test_files = all_files[train_size:]
 
-    # Copy files to respective destination directories
+    # Either move or copy files to respective destination directories based on move_files flag
     for file in train_files:
-        shutil.copy2(os.path.join(folder_path, file), os.path.join(train_folder_dest, file))
+        src_file_path = os.path.join(folder_path, file)
+        dest_file_path = os.path.join(train_folder_dest, file)
+        if move_files:
+            shutil.move(src_file_path, dest_file_path)
+        else:
+            shutil.copy2(src_file_path, dest_file_path)
 
     for file in test_files:
-        shutil.copy2(os.path.join(folder_path, file), os.path.join(test_folder_dest, file))
+        src_file_path = os.path.join(folder_path, file)
+        dest_file_path = os.path.join(test_folder_dest, file)
+        if move_files:
+            shutil.move(src_file_path, dest_file_path)
+        else:
+            shutil.copy2(src_file_path, dest_file_path)
 
-# Example usage
-split_dataset('/home/george-vengrovski/Documents/data/llb3_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb3_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb3_test')
-split_dataset('/home/george-vengrovski/Documents/data/llb16_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb16_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb16_test')
-split_dataset('/home/george-vengrovski/Documents/data/llb11_data_matrices', 0.8, '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb11_train', '/home/george-vengrovski/Documents/projects/tweety_bert_paper/llb11_test')
+# Example usage with moving files
+split_dataset('/media/george-vengrovski/disk1/multispecies_data_set', 0.8, '/media/george-vengrovski/disk1/multispecies_data_set_train', '/media/george-vengrovski/disk1/multispecies_data_set_test', move_files=True)

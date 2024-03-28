@@ -221,7 +221,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
-    hdbscan_labels = generate_hdbscan_labels(embedding_outputs)
+    hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_samples=1, min_cluster_size=500)
 
     # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     
@@ -247,11 +247,11 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     for i, ax in enumerate(axes):
         # Scatter plot with HDBSCAN labels and ground truth labels
         if i == 0:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.1, cmap=cmap_hdbscan_labels)
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=10, alpha=.01, cmap=cmap_hdbscan_labels)
         else:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.1, cmap=cmap_ground_truth)
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=10, alpha=.01, cmap=cmap_ground_truth)
 
-        # Remove the axis tick numbers
+        # Remove the axis tick numbers and add large x and y labels
         ax.tick_params(
             axis='both',          # changes apply to both axes
             which='both',         # both major and minor ticks are affected
@@ -260,13 +260,15 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
             labelbottom=False,    # labels along the bottom edge are off
             labelleft=False       # labels along the left edge are off
         )
+        ax.set_xlabel('UMAP 1', fontsize=24)  # Add large x label
+        ax.set_ylabel('UMAP 2', fontsize=24)  # Add large y label
 
-        # Remove the square border around the plot
+        # Remove the square border around the plot and add a frame
         for spine in ax.spines.values():
-            spine.set_visible(False)
+            spine.set_visible(True)
 
         # Add titles to the subplots
-        ax.set_title("HDBSCAN Discovered Labels" if i == 0 else "Ground Truth Labels", fontsize=20)
+        ax.set_title("HDBSCAN Discovered Labels" if i == 0 else "Ground Truth Labels", fontsize=24)
 
     # Adjust the layout to ensure everything fits without overlap
     plt.tight_layout()

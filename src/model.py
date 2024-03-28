@@ -186,21 +186,6 @@ class TweetyBERT(nn.Module):
         self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
         self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
 
-        # # TweetyNet Front End
-        # self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), stride=1, padding=2)
-        # self.pool1 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
-        # self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(5, 5), stride=1, padding=2)
-        # self.pool2 = nn.MaxPool2d(kernel_size=(14, 1), stride=(14, 1))
-
-        # self.pos_enc = PositionalEncoding(d_transformer)
-        # self.learned_pos_enc = nn.Embedding(length, d_transformer)
-        # self.label_embedding = nn.Embedding(num_labels, num_freq_bins)
-
-        # # transformer
-        # self.transformerProjection = nn.Linear(64, d_transformer)
-        # self.transformer_encoder = nn.ModuleList([CustomEncoderBlock(d_model=d_transformer, num_heads=nhead_transformer, ffn_dim=dim_feedforward, dropout=dropout, pos_enc_type=pos_enc_type, length=length) for _ in range(transformer_layers)])        
-        # self.transformerDeProjection = nn.Linear(d_transformer, num_freq_bins)
-
         self.device = "cuda:0"
         self.to(self.device)
 
@@ -246,45 +231,46 @@ class TweetyBERT(nn.Module):
 
         return x, all_outputs
 
-    def masking_operation(self, x, p=0.01, m=10, noise_weight=20.0):
-        
+    def masking_operation(self, x, p=0.01, m=10, noise_std=4.0):
         """
-        Apply a mask to the input tensor `x` and replace masked parts with weighted uniform noise.
+        First, apply noise augmentation to the input tensor `x` by adding normally distributed noise.
+        Then, apply a mask to the augmented tensor with a total masked size of `m`, distributed randomly across the tensor.
+        Each mask size from 1 to `m` has an equal probability of being chosen.
         
         Parameters:
             x (torch.Tensor): Input tensor with shape [batch, dim, length]
-            p (float): Probability of masking a particular element
-            m (int): Number of consecutive elements to mask
-            noise_weight (float): The weight factor for the noise
+            p (float): (Unused) Probability of masking a particular element
+            m (int): Total number of elements to mask
+            noise_std (float): Standard deviation of the noise to be added
             
         Returns:
-            torch.Tensor: Tensor with replaced noise, same shape as `x`
+            torch.Tensor: Tensor with noise augmentation and masked areas, same shape as `x`
             torch.Tensor: Mask tensor with shape [batch, dim, length]
         """
         batch, dim, length = x.size()
 
-        while True:
-            prob_mask = torch.rand(length, device=x.device) < p
-            if torch.any(prob_mask):  
-                break
+        # Apply noise augmentation
+        noise = torch.randn_like(x) * noise_std
+        x_augmented = x + noise
 
-        expanded_mask = torch.zeros_like(prob_mask)
-        for i in range(length):
-            if prob_mask[i]:
-                expanded_mask[i:min(i+m, length)] = 1
+        # Initialize mask with zeros
+        mask = torch.zeros(batch, dim, length, device=x.device)
 
-        mask = expanded_mask.view(1, 1, -1).expand_as(x)
+        total_masked = 0
+        while total_masked < m:
+            remaining = m - total_masked
+            # Ensure the mask size does not exceed the remaining number of elements to mask
+            mask_size = torch.randint(1, remaining + 1, (1,)).item()
+            start_index = torch.randint(0, length - mask_size + 1, (1,)).item()
+            mask[:, :, start_index:start_index + mask_size] = 1
+            total_masked += mask_size
+
         mask_float = mask.float()
 
-        # Generate uniform noise with the same shape as x
-        noise = torch.rand(x.size(), device=x.device)  # Uniform noise between 0 and 1
-        noise = torch.abs(noise)
+        # Apply mask to the augmented tensor
+        x_masked = x_augmented * (1 - mask_float)
 
-        # Replace masked areas with weighted uniform noise
-        x = (noise) * mask_float + x * (1-mask_float)
-        # x = normalize(x) * mask_float + x * (1-mask_float)
-
-        return x, mask_float
+        return x_masked, mask_float
     
     def learned_pos_embedding(self, x):
         # learned pos encoding
