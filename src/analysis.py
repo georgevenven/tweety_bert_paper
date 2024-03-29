@@ -218,7 +218,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
     print(f"predictions shape {predictions.shape}")
     # Fit the UMAP reducer       
-    reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
+    reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='euclidean')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_samples=1, min_cluster_size=int(samples/100))

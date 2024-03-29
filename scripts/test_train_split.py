@@ -49,4 +49,4 @@ def split_dataset(folder_path, train_ratio, train_folder_dest, test_folder_dest,
             shutil.copy2(src_file_path, dest_file_path)
 
 # Example usage with moving files
-split_dataset('/media/george-vengrovski/disk1/multispecies_data_set', 0.8, '/media/george-vengrovski/disk1/multispecies_data_set_train', '/media/george-vengrovski/disk1/multispecies_data_set_test', move_files=True)
+split_dataset('/media/george-vengrovski/disk2/canary_yarden/llb3_npz_files', 0.8, 'files/yarden_train', 'files/yarden_test', move_files=True)

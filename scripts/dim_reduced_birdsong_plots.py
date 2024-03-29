@@ -13,26 +13,26 @@ os.chdir('/home/george-vengrovski/Documents/projects/tweety_bert_paper')
 from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metrics, sliding_window_umap
 
 
-weights_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std/saved_weights/model_step_34000.pth"
-config_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std/config.json"
+weights_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std_no_llb_in_train/saved_weights/model_step_23000.pth"
+config_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std_no_llb_in_train/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
 
-# # TweetyBERT
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="files/yarden_llb3_test",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-1, 
-# dict_key="attention_output", 
-# context=500, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="llb3_attn-1",
-# )
+# TweetyBERT
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="files/yarden_llb3_test",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=3, 
+dict_key="attention_output", 
+context=500, 
+raw_spectogram=False,
+save_dict_for_analysis = False,
+save_name="llb3_attn_3-ood-eucledian",
+)
 
 # # TweetyBERT
 # plot_umap_projection(
@@ -49,50 +49,50 @@ model = model.to(device)
 # save_name="bengalese_attn-1",
 # )
 
-# TweetyBERT
-plot_umap_projection(
-model=model, 
-device=device, 
-data_dir="/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs",
-samples=5e5, 
-file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=-1, 
-dict_key="attention_output", 
-context=500, 
-raw_spectogram=False,
-save_dict_for_analysis = False,
-save_name="budgie_attn-1",
-)
+# # TweetyBERT
+# plot_umap_projection(
+# model=model, 
+# device=device, 
+# data_dir="/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs",
+# samples=5e5, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=-1, 
+# dict_key="attention_output", 
+# context=500, 
+# raw_spectogram=False,
+# save_dict_for_analysis = False,
+# save_name="budgie_attn-1",
+# )
 
-# TweetyBERT
-plot_umap_projection(
-model=model, 
-device=device, 
-data_dir="/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs",
-samples=5e5, 
-file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=-1, 
-dict_key="attention_output", 
-context=500, 
-raw_spectogram=False,
-save_dict_for_analysis = False,
-save_name="brown_thrasher_attn-1",
-)
+# # TweetyBERT
+# plot_umap_projection(
+# model=model, 
+# device=device, 
+# data_dir="/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs",
+# samples=5e5, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=-1, 
+# dict_key="attention_output", 
+# context=500, 
+# raw_spectogram=False,
+# save_dict_for_analysis = False,
+# save_name="brown_thrasher_attn-1",
+# )
 
-# TweetyBERT
-plot_umap_projection(
-model=model, 
-device=device, 
-data_dir="/media/george-vengrovski/disk2/zebra_finch/combined_specs",
-samples=5e5, 
-file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=-1, 
-dict_key="attention_output", 
-context=500, 
-raw_spectogram=False,
-save_dict_for_analysis = False,
-save_name="zf_attn-1",
-)
+# # TweetyBERT
+# plot_umap_projection(
+# model=model, 
+# device=device, 
+# data_dir="/media/george-vengrovski/disk2/zebra_finch/combined_specs",
+# samples=5e5, 
+# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+# layer_index=-1, 
+# dict_key="attention_output", 
+# context=500, 
+# raw_spectogram=False,
+# save_dict_for_analysis = False,
+# save_name="zf_attn-1",
+# )
 
 
 

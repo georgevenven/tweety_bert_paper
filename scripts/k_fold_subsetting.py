@@ -1,57 +1,48 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 import shutil
 import random
 from tqdm import tqdm
-from sklearn.model_selection import KFold
 
-def k_fold_validation(src, params):
+def train_test_subsetting(src, dst, params):
     """
-    Generates folders for k-fold validation on the specified dataset.
+    Generates train and validation folders for dataset subsetting.
     :param src: Source directory path.
+    :param dst: Destination directory path where the folders will be created.
     :param params: Dictionary containing the following keys:
-                   - 'k': Number of folds (default: 5).
-                   - 'subset_percentages': List of subset percentages to evaluate (default: [0.1]).
+                   - 'n_iterations': Number of iterations to perform the random subsetting (default: 5).
+                   - 'subset_file_numbers': List of subset file numbers to evaluate (default: [1]).
     """
     if not os.path.exists(src):
         raise ValueError(f"Source directory {src} does not exist.")
+    if not os.path.exists(dst):
+        os.makedirs(dst, exist_ok=True)
 
     # Set default values if not provided in params
-    k = params.get('k', 5)
-    subset_percentages = params.get('subset_percentages', [0.1])
+    n_iterations = params.get('n_iterations', 5)
+    subset_file_numbers = params.get('subset_file_numbers', [1])
 
     # List all npz files in the source directory
     npz_files = [item for item in os.listdir(src) if item.endswith(".npz")]
 
-    # Create k-fold split
-    kf = KFold(n_splits=k, shuffle=True, random_state=42)
-
     # Extract the name of the source directory for folder naming
     src_dir_name = os.path.basename(src)
 
-    # Generate folders for each subset percentage
-    for subset_percentage in subset_percentages:
-        print(f"Subset Percentage: {subset_percentage}")
+    # Perform subsetting for each subset file number
+    for subset_file_number in subset_file_numbers:
+        print(f"Subset File Number: {subset_file_number}")
 
-        # Calculate the number of files to use based on the given percentage
-        num_files = int(len(npz_files) * subset_percentage)
+        for iteration in range(1, n_iterations + 1):
+            print(f"Iteration {iteration}")
 
-        # If there are no files to use, skip this subset percentage
-        if num_files == 0:
-            print("The subset percentage results in zero files to be used. Skipping.")
-            continue
+            # Randomly select files for the training set
+            train_files = random.sample(npz_files, min(subset_file_number, len(npz_files)))
+            # Use the remaining files for the validation set
+            val_files = [file for file in npz_files if file not in train_files]
 
-        for fold, (train_indices, val_indices) in enumerate(kf.split(npz_files), 1):
-            print(f"Fold {fold}")
-
-            # Create train and validation sets
-            train_files = [npz_files[i] for i in train_indices]
-            val_files = [npz_files[i] for i in val_indices]
-
-            # Create train and validation directories using the source directory name
-            train_dir = f"files/{src_dir_name}_train_{subset_percentage}_fold{fold}_train"
-            val_dir = f"files/{src_dir_name}_train_{subset_percentage}_fold{fold}_val"
+            # Create train and validation directories using the destination directory path
+            train_dir = os.path.join(dst, f"{src_dir_name}_train_{subset_file_number}_iteration{iteration}")
+            val_dir = os.path.join(dst, f"{src_dir_name}_val_{subset_file_number}_iteration{iteration}")
 
             # Copy train files to train directory
             os.makedirs(train_dir, exist_ok=True)
@@ -67,10 +58,27 @@ def k_fold_validation(src, params):
                 dst_path = os.path.join(val_dir, file)
                 shutil.copy2(src_path, dst_path)
 
-# Usage
-src = "/media/george-vengrovski/disk2/canary_yarden/llb3_npz_files"
+# # Usage
+# src = "/media/george-vengrovski/disk2/canary_yarden/llb3_npz_files"
+# dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
+# params = {
+#     'n_iterations': 3,
+#     'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
+# }
+# train_test_subsetting(src, dst, params)
+
+src = "/media/george-vengrovski/disk2/canary_yarden/llb16_npz_files"
+dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
 params = {
-    'k': 5,
-    'subset_percentages': [0.0003, 0.003, 0.03, 0.3] # 1 song, 10 songs, etc
+    'n_iterations': 3,
+    'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
 }
-k_fold_validation(src, params)
+train_test_subsetting(src, dst, params)
+
+src = "/media/george-vengrovski/disk2/canary_yarden/llb11_npz_files"
+dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
+params = {
+    'n_iterations': 3,
+    'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
+}
+train_test_subsetting(src, dst, params)

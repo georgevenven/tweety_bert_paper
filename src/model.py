@@ -233,7 +233,7 @@ class TweetyBERT(nn.Module):
 
         return x, all_outputs
 
-    def masking_operation(self, x, p=0.01, m=10, noise_std=4.0):
+    def masking_operation(self, x, p=0.01, m=10, noise_std=2.0):
         """
         First, apply noise augmentation to the input tensor `x` by adding normally distributed noise.
         Then, apply a mask to the augmented tensor with a total masked size of `m`, distributed randomly across the tensor.

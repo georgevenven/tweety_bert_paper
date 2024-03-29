@@ -16,7 +16,7 @@ experiment_runner = ExperimentRunner(device="cuda")
 
 configurations = [
         {
-        "experiment_name": "Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std",
+        "experiment_name": "Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_2std_no_llb_in_train",
         "continue_training": False,
         "train_dir": "/media/george-vengrovski/disk1/multispecies_data_set_train",
         "test_dir": "/media/george-vengrovski/disk1/multispecies_data_set_test",

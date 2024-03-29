@@ -78,8 +78,6 @@ class LinearProbeModel(nn.Module):
         return logits
     
     def cross_entropy_loss(self, predictions, targets):
-        predictions = predictions.permute(0,2,1)
-
         loss = nn.CrossEntropyLoss()
         return loss(predictions, targets)
 
@@ -113,7 +111,9 @@ class LinearProbeTrainer():
         self.scaler = GradScaler()  # Initialize GradScaler for mixed precision
 
     def frame_error_rate(self, y_pred, y_true):
+        y_pred = y_pred.permute(0,2,1)
         y_pred = y_pred.argmax(-1)
+
         mismatches = (y_pred != y_true).float()
         error = mismatches.sum() / y_true.numel()
         return error * 100
@@ -133,8 +133,9 @@ class LinearProbeTrainer():
             spectrogram, label = spectrogram.to(self.device), label.to(self.device)
             with autocast():  # Use autocast for the validation pass
                 output = self.model.forward(spectrogram)
-            label = label.squeeze(1).argmax(dim=-1)
-            output = output.permute(0,2,1)
+                label = label.argmax(dim=-1)
+                output = output.permute(0,2,1)
+
             loss = self.model.cross_entropy_loss(predictions=output, targets=label)
             total_val_loss = loss.item()
             total_frame_error = self.frame_error_rate(output, label).item()
@@ -154,6 +155,7 @@ class LinearProbeTrainer():
         stop_training = False
 
         raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list = [], [], []
+        moving_avg_val_loss_list, moving_avg_frame_error_list = [], []
 
         train_iter = iter(self.train_loader)
         test_iter = iter(self.test_loader)
@@ -167,27 +169,33 @@ class LinearProbeTrainer():
 
             spectrogram, label = spectrogram.to(self.device), label.to(self.device)
             self.optimizer.zero_grad()
-
+         
             with autocast():
                 output = self.model.forward(spectrogram)
-                label = label.squeeze(1).argmax(dim=-1)
+                label = label.argmax(dim=-1)
                 output = output.permute(0,2,1)
-                loss = self.model.cross_entropy_loss(predictions=output, targets=label)
 
+                loss = self.model.cross_entropy_loss(predictions=output, targets=label)
+    
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
             total_batches += 1
-            if total_batches % self.batches_per_eval == 0:
-                avg_val_loss, avg_frame_error = self.validate_model(test_iter)
+            avg_val_loss, avg_frame_error = self.validate_model(test_iter)
 
-                raw_loss_list.append(loss.item())
-                raw_val_loss_list.append(avg_val_loss)
-                raw_frame_error_rate_list.append(avg_frame_error)
+            raw_loss_list.append(loss.item())
+            raw_val_loss_list.append(avg_val_loss)
+            raw_frame_error_rate_list.append(avg_frame_error)
 
-                if avg_val_loss < best_val_loss:
-                    best_val_loss = avg_val_loss
+            if len(raw_val_loss_list) >= self.moving_avg_window:
+                moving_avg_val_loss = np.mean(raw_val_loss_list[-self.moving_avg_window:])
+                moving_avg_frame_error = np.mean(raw_frame_error_rate_list[-self.moving_avg_window:])
+                moving_avg_val_loss_list.append(moving_avg_val_loss)
+                moving_avg_frame_error_list.append(moving_avg_frame_error)
+
+                if moving_avg_val_loss < best_val_loss:
+                    best_val_loss = moving_avg_val_loss
                     num_val_no_improve = 0
                 else:
                     num_val_no_improve += 1
@@ -196,14 +204,14 @@ class LinearProbeTrainer():
                         stop_training = True
                         break
 
-                if self.use_tqdm: 
-                    print(f'Step {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
+            if self.use_tqdm: 
+                print(f'Step {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
 
             if stop_training:
                 break
 
         if self.plotting:
-            self.plot_results(raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list)
+            self.plot_results(raw_loss_list, moving_avg_val_loss_list, moving_avg_frame_error_list)
 
     def plot_results(self, loss_list, val_loss_list, frame_error_rate_list):
         plt.figure(figsize=(10, 5))
@@ -254,12 +262,13 @@ class ModelEvaluator:
         total_frames = 0
         total_errors = 0
 
-        total_iterations = min(max_batches, len(self.test_loader))
+        total_iterations = max(max_batches, len(self.test_loader))
         progress_bar = tqdm(total=total_iterations, desc="Evaluating", unit="batch") if self.use_tqdm else None
         for _ in range(num_passes):
             with torch.no_grad():
                 for spec, label in self.test_loader:
                     spec, label = spec.to(self.device), label.to(self.device)
+                    # Removed print statements as per instructions
 
                     # this is all done to ensure that all of the eval dataset is seen by the model 
                     # First, pad spec to the nearest multiple of 500
@@ -276,7 +285,6 @@ class ModelEvaluator:
                     with autocast():  # Use autocast for the evaluation pass
                         output = self.model.forward(spec.permute(0,1,3,2))
                     label = label.squeeze(1)
-                    output = output
 
                     predicted_labels = output.argmax(dim=-1)
                     true_labels = label.argmax(dim=-1)
