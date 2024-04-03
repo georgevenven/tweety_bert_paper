@@ -15,6 +15,8 @@ import pandas as pd
 from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
 import pickle
 from itertools import cycle
+import torch.nn.functional as F
+
 
 def average_colors_per_sample(ground_truth_labels, cmap):
     """
@@ -67,10 +69,10 @@ def syllable_to_phrase_labels(arr, silence=-1):
 
     return new_arr
 
-def load_data( data_dir, context=1000):
-    dataset = SongDataSet_Image(data_dir, num_classes=50)
+def load_data( data_dir, context=500):
+    dataset = SongDataSet_Image(data_dir, num_classes=50, infinite_loader = False)
     # collate_fn = CollateFunction(segment_length=context)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16)
+    loader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=16)
     return loader 
 
 def generate_hdbscan_labels(array, min_samples=1, min_cluster_size=5000):
@@ -120,50 +122,41 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
     data_loader = load_data(data_dir=data_dir, context=context)
     data_loader_iter = iter(data_loader)
-
     while total_samples < samples:
         try:
             # Retrieve the next batch
             data, ground_truth_label = next(data_loader_iter)
+            num_classes = ground_truth_label.shape[-1]
             
-            # if smaller than context window, go to next song
-            if data.shape[-2] < context:
-                continue 
+            # Pad data to the nearest context size in the time dimension
+            total_time = data.shape[1]  # Adjusted for batch first
+            pad_size_time = (context - (total_time % context)) % context  # Adjusted padding calculation for time dimension
+            data = F.pad(data, (0, 0, pad_size_time, 0), 'constant', 0)  # Adjusted padding for batch first in time dimension
 
-            # because network is made to work with batched data, we unsqueeze a dim and transpose the last two dims (usually handled by collate fn)
-            data = data.unsqueeze(0).permute(0,1,3,2)
+            # Calculate the number of context windows in the song
+            num_times = data.shape[1] // context  # Adjustment needed here as we're padding time
 
-            # calculate the number of times a song 
-            num_times = data.shape[-1] // context
-            
-            # removing left over timebins that do not fit in context window 
-            shave_index = num_times * context
-            data = data[:,:,:,:shave_index]
+            batch, time_bins, freq = data.shape  # Adjusted for batch first
 
-            batch, channel, freq, time_bins = data.shape 
+            # Reshape data to fit into multiple context-sized batches
+            data = data.reshape(batch * num_times, context, freq)  # Adjusted reshape to exclude padded frequency since we're padding time
 
-            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
-            data = data.permute(0,-1, 1, 2)
-            data = data.reshape(num_times, context, channel, freq)
-            data = data.permute(0,2,3,1)
+            # Pad ground truth labels to match data padding in time dimension
+            total_length_labels = ground_truth_label.shape[1]  # Adjusted for batch first
+            pad_size_labels_time = (context - (total_length_labels % context)) % context  # Adjusted padding calculation for time dimension
+            ground_truth_label = F.pad(ground_truth_label, (0, 0, pad_size_time, 0), 'constant', 0)  # Adjusted padding for batch first in time dimension
 
-            # reshaping g truth labels to be consistent 
-            batch, time_bins, labels = ground_truth_label.shape
+            ground_truth_label = ground_truth_label.reshape(batch * num_times, context, num_classes)  # Adjusted for batch first
 
-            # shave g truth labels 
-            ground_truth_label = ground_truth_label.permute(0,2,1)
-            ground_truth_label = ground_truth_label[:,:,:shave_index]
-
-            # cheeky reshaping operation to reshape the length of the song that is larger than the context window into multiple batches 
-            ground_truth_label = ground_truth_label.permute(0,2,1)
-            ground_truth_label = ground_truth_label.reshape(num_times, context, labels)
-            
         except StopIteration:
             # if test set is exhausted, print the number of samples collected and stop the collection process
             print(f"samples collected {len(ground_truth_labels_arr) * context}")
             break
 
         if raw_spectogram == False:
+            data = data.unsqueeze(1)
+            data = data.permute(0,1,3,2)
+
             _, layers = model.inference_forward(data.to(device))
 
             layer_output_dict = layers[layer_index]
@@ -202,7 +195,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
     spec_arr = np.concatenate(spec_arr, axis=0)
 
-
     if not raw_spectogram:
         predictions = np.concatenate(predictions_arr, axis=0)
     else:
@@ -218,7 +210,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
     print(f"predictions shape {predictions.shape}")
     # Fit the UMAP reducer       
-    reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='euclidean')
+    reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_samples=1, min_cluster_size=int(samples/100))

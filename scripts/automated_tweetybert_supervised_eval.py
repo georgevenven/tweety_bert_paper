@@ -45,27 +45,32 @@ for train_dir in train_dirs:
 
 # Train and evaluate models for each cross-validation split
 for idx, (train_dir, val_dir) in enumerate(cv_pairs):
-    # Load datasets
-    train_dataset = SongDataSet_Image(train_dir, num_classes=21)
-    val_dataset = SongDataSet_Image(val_dir, num_classes=21)
+    # # Load datasets
+    # train_dir = "files/yarden_train"
+    # test_dir = "files/yarden_test"
+
+
+    train_dataset = SongDataSet_Image(train_dir, num_classes=50)
+    val_dataset = SongDataSet_Image(val_dir, num_classes=50)
     collate_fn = CollateFunction(segment_length=500)  # Adjust the segment length if needed
     train_loader = DataLoader(train_dataset, batch_size=24, shuffle=False, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=24, shuffle=False, collate_fn=collate_fn)
 
     # Initialize and train classifier model, the num classes is a hack and needs to be fixed later on by removing one hot encodings 
-    classifier_model = LinearProbeModel(num_classes=21, model_type="neural_net", model=tweety_bert_model,
+    classifier_model = LinearProbeModel(num_classes=50, model_type="neural_net", model=tweety_bert_model,
                                         freeze_layers=True, layer_num=-3, layer_id="attention_output", classifier_dims=384)
+
     classifier_model = classifier_model.to(device)
     trainer = LinearProbeTrainer(model=classifier_model, train_loader=train_loader, test_loader=val_loader,
-                                 device=device, lr=1e-4, plotting=False, batches_per_eval=1, desired_total_batches=1e4, patience=4)
+                                 device=device, lr=1e-3, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
     trainer.train()
 
 
-    eval_dataset = SongDataSet_Image(val_dir, num_classes=21, infinite_loader=False)
+    eval_dataset = SongDataSet_Image(val_dir, num_classes=50, infinite_loader=False)
     eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 
     # Evaluate the trained model
-    evaluator = ModelEvaluator(model=classifier_model, test_loader=eval_loader, num_classes=21,
+    evaluator = ModelEvaluator(model=classifier_model, test_loader=eval_loader, num_classes=50,
                                device='cuda:0', use_tqdm=True, filter_unseen_classes=True, train_dir=train_dir)
     class_frame_error_rates, total_frame_error_rate = evaluator.validate_model_multiple_passes(num_passes=1, max_batches=1250)
 
@@ -73,6 +78,6 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
     results_folder_name = os.path.basename(val_dir)
 
     # Save the evaluation results
-    results_dir = os.path.join("results", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
+    results_dir = os.path.join("results/-3attn4std", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
     os.makedirs(results_dir, exist_ok=True)
     evaluator.save_results(class_frame_error_rates, total_frame_error_rate, results_dir)

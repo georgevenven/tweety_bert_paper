@@ -35,12 +35,15 @@ class SongDataSet_Image(Dataset):
                 # Truncate the spectrogram to 513 frequency bins
                 spectogram = spectogram[:513, :]
 
-            # Calculate mean and standard deviation of the spectrogram
+            # # Calculate mean and standard deviation of the spectrogram
             spec_mean = np.mean(spectogram)
             spec_std = np.std(spectogram)
-
             # Z-score the spectrogram
             spectogram = (spectogram - spec_mean) / spec_std
+
+            # # add 4std of noise 
+            # noise = np.random.normal(0, 4*spec_std, spectogram.shape)
+            # spectogram += noise
 
             # Process labels
             ground_truth_labels = np.array(data['labels'], dtype=int)
@@ -79,6 +82,7 @@ class CollateFunction:
         # with record_function("collate_fn"):
         # Unzip the batch (a list of (spectogram, psuedo_labels, ground_truth_labels) tuples)
         spectograms, ground_truth_labels = zip(*batch)
+        print(spectograms[0].shape)
 
         # Create lists to hold the processed tensors
         spectograms_processed = []

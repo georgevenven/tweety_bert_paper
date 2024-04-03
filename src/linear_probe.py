@@ -111,8 +111,15 @@ class LinearProbeTrainer():
         self.scaler = GradScaler()  # Initialize GradScaler for mixed precision
 
     def frame_error_rate(self, y_pred, y_true):
+        # print(f"Shapes before permute: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
         y_pred = y_pred.permute(0,2,1)
+        # print(f"Shapes after permute: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
+
         y_pred = y_pred.argmax(-1)
+        # print(f"Shapes after argmax: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
+
+        # print(f"First 10 elements of y_pred: {y_pred.view(-1)[:10].tolist()}")
+        # print(f"First 10 elements of y_true: {y_true.view(-1)[:10].tolist()}")
 
         mismatches = (y_pred != y_true).float()
         error = mismatches.sum() / y_true.numel()
@@ -172,6 +179,7 @@ class LinearProbeTrainer():
          
             with autocast():
                 output = self.model.forward(spectrogram)
+
                 label = label.argmax(dim=-1)
                 output = output.permute(0,2,1)
 
@@ -182,30 +190,31 @@ class LinearProbeTrainer():
             self.scaler.update()
 
             total_batches += 1
-            avg_val_loss, avg_frame_error = self.validate_model(test_iter)
+            if total_batches % self.batches_per_eval == 0:
+                avg_val_loss, avg_frame_error = self.validate_model(test_iter)
 
-            raw_loss_list.append(loss.item())
-            raw_val_loss_list.append(avg_val_loss)
-            raw_frame_error_rate_list.append(avg_frame_error)
+                raw_loss_list.append(loss.item())
+                raw_val_loss_list.append(avg_val_loss)
+                raw_frame_error_rate_list.append(avg_frame_error)
 
-            if len(raw_val_loss_list) >= self.moving_avg_window:
-                moving_avg_val_loss = np.mean(raw_val_loss_list[-self.moving_avg_window:])
-                moving_avg_frame_error = np.mean(raw_frame_error_rate_list[-self.moving_avg_window:])
-                moving_avg_val_loss_list.append(moving_avg_val_loss)
-                moving_avg_frame_error_list.append(moving_avg_frame_error)
+                if len(raw_val_loss_list) >= self.moving_avg_window:
+                    moving_avg_val_loss = np.mean(raw_val_loss_list[-self.moving_avg_window:])
+                    moving_avg_frame_error = np.mean(raw_frame_error_rate_list[-self.moving_avg_window:])
+                    moving_avg_val_loss_list.append(moving_avg_val_loss)
+                    moving_avg_frame_error_list.append(moving_avg_frame_error)
 
-                if moving_avg_val_loss < best_val_loss:
-                    best_val_loss = moving_avg_val_loss
-                    num_val_no_improve = 0
-                else:
-                    num_val_no_improve += 1
-                    if num_val_no_improve >= self.patience:
-                        print("Early stopping triggered")
-                        stop_training = True
-                        break
+                    if moving_avg_val_loss < best_val_loss:
+                        best_val_loss = moving_avg_val_loss
+                        num_val_no_improve = 0
+                    else:
+                        num_val_no_improve += 1
+                        if num_val_no_improve >= self.patience:
+                            print("Early stopping triggered")
+                            stop_training = True
+                            break
 
-            if self.use_tqdm: 
-                print(f'Step {total_batches}: FER = {avg_frame_error:.2f}%, Train Loss = {loss.item():.4f}, Val Loss = {avg_val_loss:.4f}')
+                if self.use_tqdm: 
+                    print(f'Step {total_batches}: Train Loss {loss.item():.4f} FER = {avg_frame_error:.2f}%, Val Loss = {avg_val_loss:.4f}')
 
             if stop_training:
                 break
