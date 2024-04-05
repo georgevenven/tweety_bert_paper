@@ -84,35 +84,18 @@ class WavtoSpec:
                 song_info[song_name] = song_ms
         return song_info
 
-    #@profile
-    def convert_to_spectrogram(self, file_path, song_info, max_timebins=5000, chunk_size=52428800):
+    def convert_to_spectrogram(self, file_path, song_info):
         offset_constant = .001
-        # print(f"Memory usage before processing: {get_memory_usage()} MB")
 
         try:
             with sf.SoundFile(file_path, 'r') as wav_file:
                 samplerate = wav_file.samplerate
                 num_channels = wav_file.channels
 
-                # Process the audio data in chunks to reduce memory usage
-                data = []
-                while True:
-                    chunk = wav_file.read(chunk_size)
-                    if len(chunk) == 0:
-                        break
-                    # Normalize and append chunk data
-                    chunk = (chunk * 32767).astype(np.int16)
-                    if num_channels > 1:
-                        chunk = chunk[:, 0]  # Use the first channel if multi-channel audio
-                    data.append(chunk)
-                data = np.concatenate(data)  # Combine chunks into a single array
-
-                ## This causes memory leaks!! uncomment only if problem is understood 
-                # # Resample if necessary
-                # if samplerate != default_sample_rate:
-                #     num_samples = int(len(data) * default_sample_rate / samplerate)
-                #     data = resample(data, num_samples)
-                #     samplerate = default_sample_rate
+                # Read the entire audio data
+                data = wav_file.read(dtype='int16')
+                if num_channels > 1:
+                    data = data[:, 0]  # Use the first channel if multi-channel audio
 
                 song_name = os.path.splitext(os.path.basename(file_path))[0]
 
@@ -130,7 +113,8 @@ class WavtoSpec:
                     Sxx_log = 10 * np.log10(Sxx + offset_constant)
                     Sxx_z_scored = self.z_score_spectrogram(Sxx_log)
 
-                    self.save_spectrogram_parts(song_name, Sxx_z_scored, start_sample, samplerate, max_timebins=max_timebins)
+                    # Save the entire spectrogram
+                    self.save_spectrogram(song_name, Sxx_z_scored, start_sample, samplerate)
 
                     # Delete intermediate arrays
                     del segment_data, Sxx, Sxx_log, Sxx_z_scored
@@ -144,7 +128,11 @@ class WavtoSpec:
         finally:
             plt.close('all')  # Ensure all plots are closed
             gc.collect()  # Force garbage collection
-            # print(f"Memory usage after processing: {get_memory_usage()} MB")
+
+    def save_spectrogram(self, song_name, Sxx_z_scored, start_sample, samplerate):
+        segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}.npz"
+        segment_file_path = os.path.join(self.dst_dir, segment_filename)
+        np.savez_compressed(segment_file_path, s=Sxx_z_scored)
 
     #@profile
     def get_segments_to_process(self, song_name, song_info, data, samplerate):
@@ -166,21 +154,6 @@ class WavtoSpec:
         Sxx_z_scored = (Sxx_log - mean) / std
         return Sxx_z_scored
 
-    #@profile
-    def save_spectrogram_parts(self, song_name, Sxx_z_scored, start_sample, samplerate, max_timebins=5000):
-        if Sxx_z_scored.shape[1] > max_timebins:
-            num_parts = int(np.ceil(Sxx_z_scored.shape[1] / max_timebins))
-            for part in range(num_parts):
-                start_bin = part * max_timebins
-                end_bin = min((part + 1) * max_timebins, Sxx_z_scored.shape[1])
-                spec_part = Sxx_z_scored[:, start_bin:end_bin]
-                segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}_part{part+1}.npz"
-                segment_file_path = os.path.join(self.dst_dir, segment_filename)
-                np.savez_compressed(segment_file_path, s=spec_part)
-        else:
-            segment_filename = f"{song_name}_{int(start_sample / samplerate * 1000)}.npz"
-            segment_file_path = os.path.join(self.dst_dir, segment_filename)
-            np.savez_compressed(segment_file_path, s=Sxx_z_scored)
 
     def visualize_random_spectrogram(self):
         # Get a list of all '.npz' files in the destination directory
@@ -363,28 +336,9 @@ def copy_yarden_data(src_dirs, dst_dir):
         print(f"Copied {file} to {dst_dir}")
 
 if __name__ == '__main__':
-    # wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_wav', '/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs')
-    # wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/zebra_finch/combined_wav', '/media/george-vengrovski/disk2/zebra_finch/combined_specs')
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/llb3_files_with_reattached_labels_wav', '/media/george-vengrovski/disk2/canary_yarden/llb3_files_with_reattached_labels_npz')
     wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/combined_wav', '/media/george-vengrovski/disk2/canary_yarden/combined_no_clip_specs')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary/sorted_2/combined_wav', '/media/george-vengrovski/disk2/canary/sorted_2/combined_specs')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary/sorted_1/combined_wav', '/media/george-vengrovski/disk2/canary/sorted_1/combined_spec')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/warble_wav', '/media/george-vengrovski/disk2/budgie/warble_spec')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/T5_ssd_combined', '/media/george-vengrovski/disk2/budgie/T5_ssd_combined_specs')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/budgie/pair_wav', '/media/george-vengrovski/disk2/budgie/pair_spec')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_wav', '/media/george-vengrovski/disk2/brown_thrasher/brown_thrasher_specs')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/bengalese-finch/bengalese-finch_nickle_dave/combined_wav', '/media/george-vengrovski/disk2/bengalese-finch/bengalese-finch_nickle_dave/combined_specs')
-    wav_to_spec.process_directory()
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/bengalese-finch/3470165/combined_wav', '/media/george-vengrovski/disk2/bengalese-finch/3470165/combined_specs')
-    wav_to_spec.process_directory()
+
 
     # # Usage:
     # csv_dir only populated if u want to use it 

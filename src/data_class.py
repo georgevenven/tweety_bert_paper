@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.profiler import profile, record_function, ProfilerActivity
 import random
+import matplotlib.pyplot as plt
+import logging
 
 class SongDataSet_Image(Dataset):
     def __init__(self, file_dir, num_classes=40, infinite_loader=True):
@@ -16,7 +18,7 @@ class SongDataSet_Image(Dataset):
 
     def __getitem__(self, idx):
         if self.infinite_loader:
-            # Randomly select an index for each access in infinite loader mode
+            original_idx = idx  # Store the original index for logging
             idx = random.randint(0, len(self.file_paths) - 1)
         file_path = self.file_paths[idx]
 
@@ -35,21 +37,21 @@ class SongDataSet_Image(Dataset):
                 # Truncate the spectrogram to 513 frequency bins
                 spectogram = spectogram[:513, :]
 
-            # # Calculate mean and standard deviation of the spectrogram
-            spec_mean = np.mean(spectogram)
-            spec_std = np.std(spectogram)
-            # Z-score the spectrogram
-            spectogram = (spectogram - spec_mean) / spec_std
+            # # # Calculate mean and standard deviation of the spectrogram
+            # spec_mean = np.mean(spectogram)
+            # spec_std = np.std(spectogram)
+            # # Z-score the spectrogram
+            # spectogram = (spectogram - spec_mean) / spec_std
 
-            # # add 4std of noise 
-            # noise = np.random.normal(0, 4*spec_std, spectogram.shape)
-            # spectogram += noise
+            # # # add 4std of noise 
+            # # noise = np.random.normal(0, 4*spec_std, spectogram.shape)
+            # # spectogram += noise
 
-            # Process labels
-            ground_truth_labels = np.array(data['labels'], dtype=int)
+            # # Process labels
+            # ground_truth_labels = np.array(data['labels'], dtype=int)
             # # else:
             #     # If 'labels' is None or not present, assign a default value or handle it accordingly
-            # ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
+            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
             ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
             spectogram = torch.from_numpy(spectogram).float().permute(1, 0)
@@ -82,8 +84,6 @@ class CollateFunction:
         # with record_function("collate_fn"):
         # Unzip the batch (a list of (spectogram, psuedo_labels, ground_truth_labels) tuples)
         spectograms, ground_truth_labels = zip(*batch)
-        print(spectograms[0].shape)
-
         # Create lists to hold the processed tensors
         spectograms_processed = []
         ground_truth_labels_processed = []
@@ -136,4 +136,5 @@ class CollateFunction:
 
 # # Print profiler results
 # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=30))
+
 

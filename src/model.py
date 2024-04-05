@@ -233,7 +233,7 @@ class TweetyBERT(nn.Module):
 
         return x, all_outputs
 
-    def masking_operation(self, x, p=0.01, m=10, noise_std=2.0):
+    def masking_operation(self, x, p=0.01, m=10, noise_std=0.0):
         """
         First, apply noise augmentation to the input tensor `x` by adding normally distributed noise.
         Then, apply a mask to the augmented tensor with a total masked size of `m`, distributed randomly across the tensor.
@@ -251,9 +251,9 @@ class TweetyBERT(nn.Module):
         """
         batch, dim, length = x.size()
 
-        # Apply noise augmentation
-        noise = torch.randn_like(x) * noise_std
-        x_augmented = x + noise
+        # # Apply noise augmentation
+        # noise = torch.randn_like(x) * noise_std
+        # x_augmented = x + noise
 
         # Initialize mask with zeros
         mask = torch.zeros(batch, dim, length, device=x.device)
@@ -270,9 +270,9 @@ class TweetyBERT(nn.Module):
         mask_float = mask.float()
 
         # Apply mask to the augmented tensor
-        x_masked = x_augmented * (1 - mask_float)
+        x = x * (1 - mask_float)
 
-        return x_masked, mask_float
+        return x, mask_float
     
     def learned_pos_embedding(self, x):
         # learned pos encoding
