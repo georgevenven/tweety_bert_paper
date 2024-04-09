@@ -90,11 +90,22 @@ class LinearProbeModel(nn.Module):
         for param in self.classifier.parameters():
             param.requires_grad = True
 
+    def freeze_transformer_blocks(self, model):
+        total_blocks = 3  # Assuming there are 12 transformer encoder blocks
+        for name, module in model.named_modules():
+            # Check if the module is part of the transformer encoder blocks and not the last one
+            if "transformer_encoder" in name and not name.endswith(f"transformer_encoder.{total_blocks - 1}"):
+                for param in module.parameters():
+                    param.requires_grad = False
+            # Ensure the classifier's parameters are always trainable
+            if name == "classifier":
+                for param in module.parameters():
+                    param.requires_grad = True
+
     # overwrite way we have access to the models device state 
     def to(self, device):
         self.device = device
         return super(LinearProbeModel, self).to(device)
-
 class LinearProbeTrainer():
     def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=8, use_tqdm=True, moving_avg_window = 200):
         self.device = device
@@ -293,6 +304,15 @@ class ModelEvaluator:
 
                     with autocast():  # Use autocast for the evaluation pass
                         output = self.model.forward(spec.permute(0,1,3,2))
+
+                    # # plot all three tensors
+                    # plt.imshow(spec.permute(0,1,3,2)[0].cpu().numpy())
+                    # plt.show()
+                    # plt.imshow(output[0].cpu().numpy())
+                    # plt.show()
+                    # plt.imshow(label[0].cpu().numpy())
+                    # plt.show()
+
                     label = label.squeeze(1)
 
                     predicted_labels = output.argmax(dim=-1)

@@ -48,10 +48,10 @@ class SongDataSet_Image(Dataset):
             # # spectogram += noise
 
             # # Process labels
-            # ground_truth_labels = np.array(data['labels'], dtype=int)
+            ground_truth_labels = np.array(data['labels'], dtype=int)
             # # else:
             #     # If 'labels' is None or not present, assign a default value or handle it accordingly
-            ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
+            # ground_truth_labels = np.zeros(spectogram.shape[1], dtype=int)
 
             ground_truth_labels = torch.from_numpy(ground_truth_labels).long().squeeze(0)
             spectogram = torch.from_numpy(spectogram).float().permute(1, 0)

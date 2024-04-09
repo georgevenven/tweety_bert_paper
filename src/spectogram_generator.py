@@ -101,7 +101,7 @@ class WavtoSpec:
 
                 # Define spectrogram parameters
                 NFFT = 1024  
-                step_size = 512
+                step_size = 128
                 overlap_samples = NFFT - step_size
 
                 segments_to_process = self.get_segments_to_process(song_name, song_info, data, samplerate)
@@ -336,7 +336,7 @@ def copy_yarden_data(src_dirs, dst_dir):
         print(f"Copied {file} to {dst_dir}")
 
 if __name__ == '__main__':
-    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/llb3_files_with_reattached_labels_wav', '/media/george-vengrovski/disk2/canary_yarden/llb3_files_with_reattached_labels_npz')
+    wav_to_spec = WavtoSpec('/media/george-vengrovski/disk2/canary_yarden/llb3_files_with_reattached_labels_wav', '/media/george-vengrovski/disk2/canary_yarden/llb3_files_extra_long')
     wav_to_spec.process_directory()
 
 
@@ -348,8 +348,8 @@ if __name__ == '__main__':
 
 
 
-    # param_dict = {
-    #     'NFFT': [512, 1024], 
-    #     'step_size': [256, 512] 
-    # }
-    # wav_to_spec.compare_spectrogram_permutations(param_dict)
+    param_dict = {
+        'NFFT': [ 1024], 
+        'step_size': [128, 256, 512] 
+    }
+    wav_to_spec.compare_spectrogram_permutations(param_dict)

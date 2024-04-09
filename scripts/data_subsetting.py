@@ -58,8 +58,16 @@ def train_test_subsetting(src, dst, params):
                 dst_path = os.path.join(val_dir, file)
                 shutil.copy2(src_path, dst_path)
 
-# # Usage
-# src = "/media/george-vengrovski/disk2/canary_yarden/llb3_npz_files"
+# Usage
+src = "/media/george-vengrovski/disk1/yarden_OG_eval"
+dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
+params = {
+    'n_iterations': 3,
+    'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
+}
+train_test_subsetting(src, dst, params)
+
+# src = "/media/george-vengrovski/disk2/canary_yarden/llb16_npz_files"
 # dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
 # params = {
 #     'n_iterations': 3,
@@ -67,18 +75,10 @@ def train_test_subsetting(src, dst, params):
 # }
 # train_test_subsetting(src, dst, params)
 
-src = "/media/george-vengrovski/disk2/canary_yarden/llb16_npz_files"
-dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
-params = {
-    'n_iterations': 3,
-    'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
-}
-train_test_subsetting(src, dst, params)
-
-src = "/media/george-vengrovski/disk2/canary_yarden/llb11_npz_files"
-dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
-params = {
-    'n_iterations': 3,
-    'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
-}
-train_test_subsetting(src, dst, params)
+# src = "/media/george-vengrovski/disk2/canary_yarden/llb11_npz_files"
+# dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
+# params = {
+#     'n_iterations': 3,
+#     'subset_file_numbers': [1, 10, 100] # Specific file numbers instead of percentages
+# }
+# train_test_subsetting(src, dst, params)

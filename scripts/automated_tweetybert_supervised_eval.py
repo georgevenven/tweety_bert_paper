@@ -13,8 +13,8 @@ from linear_probe import LinearProbeModel, LinearProbeTrainer, ModelEvaluator
 import datetime
 
 # Load TweetyBERT model
-weights_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std/saved_weights/model_step_34000.pth"
-config_path = "experiments/Goliath-0-No_weight_decay_a1_fp16_CVM_Noise_augmentation_4std/config.json"
+weights_path = "experiments/OG_Yarden_Only_128/saved_weights/model_step_19000.pth"
+config_path = "experiments/OG_Yarden_Only_128/config.json"
 tweety_bert_model = load_model(config_path, weights_path)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -35,8 +35,9 @@ for train_dir in train_dirs:
     parts = train_dir.split('_')
     size = parts[-2]  # Second to last item is the size
     iteration = parts[-1]  # Last item is the iteration
+    prefix = parts[0]
     # Construct the matching validation directory name using the correct prefix
-    val_dir = f"llb3_npz_files_val_{size}_{iteration}"
+    val_dir = f"{prefix}_val_{size}_{iteration}"
 
     if val_dir in val_dirs:
         cv_pairs.append((os.path.join(cv_parent_dir, train_dir), os.path.join(cv_parent_dir, val_dir)))
@@ -45,24 +46,21 @@ for train_dir in train_dirs:
 
 # Train and evaluate models for each cross-validation split
 for idx, (train_dir, val_dir) in enumerate(cv_pairs):
-    # # Load datasets
-    # train_dir = "files/yarden_train"
-    # test_dir = "files/yarden_test"
-
+    print(f"training on {train_dir} and evaluating on {val_dir}")
 
     train_dataset = SongDataSet_Image(train_dir, num_classes=50)
     val_dataset = SongDataSet_Image(val_dir, num_classes=50)
-    collate_fn = CollateFunction(segment_length=500)  # Adjust the segment length if needed
+    collate_fn = CollateFunction(segment_length=1000)  # Adjust the segment length if needed
     train_loader = DataLoader(train_dataset, batch_size=24, shuffle=False, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=24, shuffle=False, collate_fn=collate_fn)
 
     # Initialize and train classifier model, the num classes is a hack and needs to be fixed later on by removing one hot encodings 
     classifier_model = LinearProbeModel(num_classes=50, model_type="neural_net", model=tweety_bert_model,
-                                        freeze_layers=True, layer_num=-3, layer_id="attention_output", classifier_dims=384)
+                                        freeze_layers=False, layer_num=-1, layer_id="attention_output", classifier_dims=196)
 
     classifier_model = classifier_model.to(device)
     trainer = LinearProbeTrainer(model=classifier_model, train_loader=train_loader, test_loader=val_loader,
-                                 device=device, lr=1e-3, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
+                                 device=device, lr=5e-4, plotting=False, batches_per_eval=50, desired_total_batches=1e3, patience=4)
     trainer.train()
 
 
