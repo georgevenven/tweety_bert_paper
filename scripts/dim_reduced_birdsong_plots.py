@@ -34,8 +34,8 @@ from analysis import plot_umap_projection, ComputerClusterPerformance, plot_metr
 # save_name="128_Step_Trained_Model_attention-1,500k",
 # )
 
-weights_path = "experiments/OG_Yarden_Only_128/saved_weights/model_step_19000.pth"
-config_path = "experiments/OG_Yarden_Only_128/config.json"
+weights_path = "experiments/Yarden_FreqTruncated/saved_weights/model_step_17000.pth"
+config_path = "experiments/Yarden_FreqTruncated/config.json"
 
 model = load_model(config_path, weights_path)
 model = model.to(device)
@@ -44,15 +44,15 @@ model = model.to(device)
 plot_umap_projection(
 model=model, 
 device=device, 
-data_dir="/media/george-vengrovski/disk1/yarden_OG_llb3",
-samples=5e4, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb16",
+samples=5e5, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-layer_index=-1, 
+layer_index=-2, 
 dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="LLB3_Yarden_Trained_Model_attention-1,5k_test",
+save_name="LLB16_Yarden_FreqTruncated_Trained_Model_attention-2_500k",
 )
 
 # # TweetyBERT 128 OG Model 
@@ -85,66 +85,6 @@ save_name="LLB3_Yarden_Trained_Model_attention-1,5k_test",
 # save_name="LLB11_128_OGStep_Trained_Model_attention-1,500k",
 # )
 
-
-# # TweetyBERT
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/bf_test_specs",
-# samples=5e4, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-3, 
-# dict_key="attention_output", 
-# context=500, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="bengalese_attn-3",
-# )
-
-# # TweetyBERT
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/budgie_test_specs",
-# samples=5e4, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-3, 
-# dict_key="attention_output", 
-# context=500, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="budgie_attn-3",
-# )
-
-# # TweetyBERT
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/brown_thrasher_test_specs",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-3, 
-# dict_key="attention_output", 
-# context=500, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="brown_thrasher_attn-3",
-# )
-
-# # TweetyBERT
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/zf_test_specs",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-3, 
-# dict_key="attention_output", 
-# context=500, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="zf_attn-3",
-# )
 
 
 # cluster_performance = ComputerClusterPerformance(labels_path = ["/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/labels_128_OGStep_Trained_Model_attention-1,50k.npz","/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/labels_128_Step_Trained_Model_attention-1,500k.npz"])

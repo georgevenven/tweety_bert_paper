@@ -59,7 +59,7 @@ def train_test_subsetting(src, dst, params):
                 shutil.copy2(src_path, dst_path)
 
 # Usage
-src = "/media/george-vengrovski/disk1/yarden_OG_eval"
+src = "/media/george-vengrovski/disk1/yarden_OG_llb3"
 dst = "/media/george-vengrovski/disk1/supervised_eval_dataset"
 params = {
     'n_iterations': 3,

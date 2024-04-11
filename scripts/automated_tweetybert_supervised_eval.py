@@ -13,8 +13,8 @@ from linear_probe import LinearProbeModel, LinearProbeTrainer, ModelEvaluator
 import datetime
 
 # Load TweetyBERT model
-weights_path = "experiments/OG_Yarden_Only_128/saved_weights/model_step_19000.pth"
-config_path = "experiments/OG_Yarden_Only_128/config.json"
+weights_path = "experiments/Yarden_FreqTruncated/saved_weights/model_step_17000.pth"
+config_path = "experiments/Yarden_FreqTruncated/config.json"
 tweety_bert_model = load_model(config_path, weights_path)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,7 +60,7 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
 
     classifier_model = classifier_model.to(device)
     trainer = LinearProbeTrainer(model=classifier_model, train_loader=train_loader, test_loader=val_loader,
-                                 device=device, lr=5e-4, plotting=False, batches_per_eval=50, desired_total_batches=1e3, patience=4)
+                                 device=device, lr=1e-5, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
     trainer.train()
 
 
@@ -76,6 +76,6 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
     results_folder_name = os.path.basename(val_dir)
 
     # Save the evaluation results
-    results_dir = os.path.join("results/-3attn4std", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
+    results_dir = os.path.join("results/llb3_demo", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
     os.makedirs(results_dir, exist_ok=True)
     evaluator.save_results(class_frame_error_rates, total_frame_error_rate, results_dir)

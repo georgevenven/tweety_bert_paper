@@ -275,7 +275,7 @@ class ModelEvaluator:
                 seen_classes.update(unique_labels)
         return seen_classes
 
-    def validate_model_multiple_passes(self, num_passes=1, max_batches=1e4, spec_height = 513, context = 500 ):
+    def validate_model_multiple_passes(self, num_passes=1, max_batches=1e4, spec_height = 196, context = 1000 ):
         self.model.eval()
         errors_per_class = [0] * self.num_classes
         correct_per_class = [0] * self.num_classes

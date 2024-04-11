@@ -216,23 +216,23 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
     # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     
-    # sets noise as white  
-    hdbscan_labels += 1
+    # # sets noise as white  
+    # hdbscan_labels += 1
 
-    # first syllable will be black, make sure no white syllables 
-    ground_truth_labels += 2
+    # # first syllable will be black, make sure no white syllables 
+    # ground_truth_labels += 2
 
-    # So that noise is white for HDBSCAN Plot
-    cmap_hdbscan_labels = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
-    cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
+    # # # So that noise is white for HDBSCAN Plot
+    # cmap_hdbscan_labels = glasbey.extend_palette(["#FFFFFF"], palette_size=30)
+    # cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
 
     # So that silences is black for HDBSCAN Plot
     cmap_ground_truth = glasbey.extend_palette(["#000000"], palette_size=30)
     cmap_ground_truth = mcolors.ListedColormap(cmap_ground_truth)
 
     # Compute unique labels and their corresponding colors for HDBSCAN labels
-    unique_hdbscan_labels = np.unique(hdbscan_labels)
-    hdbscan_label_colors = {label: cmap_hdbscan_labels.colors[label % len(cmap_hdbscan_labels.colors)] for label in unique_hdbscan_labels}
+    # unique_hdbscan_labels = np.unique(hdbscan_labels)
+    # hdbscan_label_colors = {label: cmap_hdbscan_labels.colors[label % len(cmap_hdbscan_labels.colors)] for label in unique_hdbscan_labels}
 
     # Compute unique labels and their corresponding colors for ground truth labels
     unique_ground_truth_labels = np.unique(ground_truth_labels)
@@ -242,15 +242,15 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     # hdbscan_colors_array = np.array([hdbscan_label_colors[label] for label in hdbscan_labels])
     # ground_truth_colors_array = np.array([ground_truth_label_colors[label] for label in ground_truth_labels])
 
-    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr, hdbscan_colors=hdbscan_label_colors, ground_truth_colors=ground_truth_label_colors)
+    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr, hdbscan_colors=ground_truth_label_colors, ground_truth_colors=ground_truth_label_colors)
 
     # Create a figure and a 1x2 grid of subplots
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8))
    
     for i, ax in enumerate(axes):
         # Scatter plot with HDBSCAN labels and ground truth labels
         if i == 0:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=2, alpha=.1, cmap=cmap_hdbscan_labels)
+            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=2, alpha=.1, cmap=cmap_ground_truth)
         else:
             scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=2, alpha=.1, cmap=cmap_ground_truth)
 

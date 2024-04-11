@@ -27,25 +27,13 @@ class SongDataSet_Image(Dataset):
             data = np.load(file_path, allow_pickle=True)
             spectogram = data['s']
 
-            if spectogram.shape[0] < 513:
-                # Calculate the padding size
-                pad_size = 513 - spectogram.shape[0]
-
-                # Pad the spectrogram with zeros at the top
-                spectogram = np.pad(spectogram, ((pad_size, 0), (0, 0)), mode='constant', constant_values=0)
-            elif spectogram.shape[0] > 513:
-                # Truncate the spectrogram to 513 frequency bins
-                spectogram = spectogram[:513, :]
+            spectogram = spectogram[20:216, :]
 
             # # # Calculate mean and standard deviation of the spectrogram
-            # spec_mean = np.mean(spectogram)
-            # spec_std = np.std(spectogram)
-            # # Z-score the spectrogram
-            # spectogram = (spectogram - spec_mean) / spec_std
-
-            # # # add 4std of noise 
-            # # noise = np.random.normal(0, 4*spec_std, spectogram.shape)
-            # # spectogram += noise
+            spec_mean = np.mean(spectogram)
+            spec_std = np.std(spectogram)
+            # Z-score the spectrogram
+            spectogram = (spectogram - spec_mean) / spec_std
 
             # # Process labels
             ground_truth_labels = np.array(data['labels'], dtype=int)
