@@ -56,7 +56,7 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
 
     # Initialize and train classifier model, the num classes is a hack and needs to be fixed later on by removing one hot encodings 
     classifier_model = LinearProbeModel(num_classes=50, model_type="neural_net", model=tweety_bert_model,
-                                        freeze_layers=False, layer_num=-1, layer_id="attention_output", classifier_dims=196)
+                                        freeze_layers=True, layer_num=-2, layer_id="attention_output", classifier_dims=196)
 
     classifier_model = classifier_model.to(device)
     trainer = LinearProbeTrainer(model=classifier_model, train_loader=train_loader, test_loader=val_loader,
@@ -76,6 +76,6 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
     results_folder_name = os.path.basename(val_dir)
 
     # Save the evaluation results
-    results_dir = os.path.join("results/llb3_demo", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
+    results_dir = os.path.join("results/llb3_demo_linear_probe", results_folder_name)  # Modified to save into the relative path /results/{cv_dirs}
     os.makedirs(results_dir, exist_ok=True)
     evaluator.save_results(class_frame_error_rates, total_frame_error_rate, results_dir)
