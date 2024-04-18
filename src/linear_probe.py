@@ -247,104 +247,86 @@ class LinearProbeTrainer():
         plt.plot(frame_error_rate_list, label='Frame Error Rate', color='red')
         plt.title('Frame Error Rate over Steps')
         plt.xlabel('Steps')
-        plt.ylabel('Error Rate (%)')
+        plt.ylabel('Error Rate (%)')1. Earth Signs
+
         plt.legend()
 
         plt.tight_layout()
         plt.show()
 
 class ModelEvaluator:
-    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', use_tqdm=True, filter_unseen_classes=False, train_dir=None):
+    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', filter_unseen_classes=False, train_dir=None):
         self.model = model.to(device)
         self.test_loader = test_loader
         self.num_classes = num_classes
         self.device = device
-        self.use_tqdm = use_tqdm
         self.filter_unseen_classes = filter_unseen_classes
-        self.seen_classes = set(range(num_classes))  # Assume all classes are seen by default
+        self.seen_classes = set(range(num_classes))  # By default, consider all classes as seen
         if filter_unseen_classes and train_dir:
             self.seen_classes = self.count_labels_in_training_set(train_dir)
 
     def count_labels_in_training_set(self, train_dir):
         seen_classes = set()
-        for file_name in os.listdir(train_dir):
-            if file_name.endswith('.npz'):
-                data = np.load(os.path.join(train_dir, file_name))
+        for file in os.listdir(train_dir):
+            if file.endswith('.npz'):
+                data = np.load(os.path.join(train_dir, file))
                 labels = data['labels']
                 unique_labels = set(np.unique(labels))
                 seen_classes.update(unique_labels)
         return seen_classes
 
-    def validate_model_multiple_passes(self, num_passes=1, max_batches=1e4, spec_height = 196, context = 1000 ):
+    def validate_model_multiple_passes(self, num_passes=1, max_batches=10000):
         self.model.eval()
         errors_per_class = [0] * self.num_classes
         correct_per_class = [0] * self.num_classes
         total_frames = 0
         total_errors = 0
 
-        total_iterations = max(max_batches, len(self.test_loader))
-        progress_bar = tqdm(total=total_iterations, desc="Evaluating", unit="batch") if self.use_tqdm else None
+        total_iterations = num_passes * min(max_batches, len(self.test_loader))
+        progress_bar = tqdm(total=total_iterations, desc="Evaluating", unit="batch")
+
         for _ in range(num_passes):
             with torch.no_grad():
-                for spec, label in self.test_loader:
-                    spec, label = spec.to(self.device), label.to(self.device)
-                    # Removed print statements as per instructions
+                for i, (waveform, label) in enumerate(self.test_loader):
+                    if i >= max_batches:
+                        break
 
-                    # this is all done to ensure that all of the eval dataset is seen by the model 
-                    # First, pad spec to the nearest multiple of 500
-                    pad_size = (context - spec.size(1) % context) % context
-                    spec = F.pad(spec, (0, 0, 0, pad_size))
-                    label = F.pad(label, (0, 0, 0, pad_size))
+                    waveform = waveform.to(self.device)
+                    label = label.to(self.device)
 
-                    # Now, reshape this to be [n x 500 x 513]
-                    spec = spec.reshape(-1, context, spec_height)
-                    label = label.reshape(-1, context, self.num_classes)
+                    output = self.model.forward(waveform)
+                    label = label.squeeze(1).permute(0, 2, 1)
 
-                    spec = spec.unsqueeze(1)
-
-                    with autocast():  # Use autocast for the evaluation pass
-                        output = self.model.forward(spec.permute(0,1,3,2))
-
-                    # # plot all three tensors
-                    # plt.imshow(spec.permute(0,1,3,2)[0].cpu().numpy())
-                    # plt.show()
-                    # plt.imshow(output[0].cpu().numpy())
-                    # plt.show()
-                    # plt.imshow(label[0].cpu().numpy())
-                    # plt.show()
-
-                    label = label.squeeze(1)
-
-                    predicted_labels = output.argmax(dim=-1)
-                    true_labels = label.argmax(dim=-1)
+                    predicted_labels = output.argmax(dim=-2)
+                    true_labels = label.argmax(dim=-2)
 
                     correct = (predicted_labels == true_labels)
                     incorrect = ~correct
 
                     for cls in range(self.num_classes):
                         if self.filter_unseen_classes and cls not in self.seen_classes:
-                            continue  # Skip classes not seen in training
+                            continue  # Skip unseen classes
 
                         class_mask = true_labels == cls
                         incorrect_class = incorrect & class_mask
 
                         errors_per_class[cls] += incorrect_class.sum().item()
-                        correct_per_class[cls] += (correct & class_mask).sum().item()
+                        correct_per_class[cls] += (correct_class := correct & class_mask).sum().item()
 
                         total_frames += class_mask.sum().item()
                         total_errors += incorrect_class.sum().item()
 
-                    if progress_bar is not None:
-                        progress_bar.update(1)
+                    progress_bar.update(1)
 
-        if progress_bar is not None:
-            progress_bar.close()
+        progress_bar.close()
 
         class_frame_error_rates = {
             cls: (errors / (errors + correct) * 100 if errors + correct > 0 else float('nan'))
             for cls, (errors, correct) in enumerate(zip(errors_per_class, correct_per_class))
         }
+
         total_frame_error_rate = (total_errors / total_frames * 100 if total_frames > 0 else float('nan'))
+
         return class_frame_error_rates, total_frame_error_rate
 
     def save_results(self, class_frame_error_rates, total_frame_error_rate, folder_path, layer_id=None, layer_num=None):

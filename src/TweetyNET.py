@@ -374,7 +374,7 @@ class TweetyNetTrainer:
 
             print(f'After {self.total_steps} Steps, Training Loss: {np.mean(self.loss_list[-10:]):.2e}, Validation Loss: {np.mean(self.val_loss_list[-10:]):.2e}, Frame Error Rate: {np.mean(self.frame_error_rate_list[-10:]):.2f}%')
 
-        self.plot_results()
+        # self.plot_results()
 
     def plot_results(self):
         plt.figure(figsize=(10, 5))

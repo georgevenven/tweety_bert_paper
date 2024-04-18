@@ -29,11 +29,11 @@ class SongDataSet_Image(Dataset):
 
             spectogram = spectogram[20:216, :]
 
-            # # # Calculate mean and standard deviation of the spectrogram
-            spec_mean = np.mean(spectogram)
-            spec_std = np.std(spectogram)
-            # Z-score the spectrogram
-            spectogram = (spectogram - spec_mean) / spec_std
+            # # # # Calculate mean and standard deviation of the spectrogram
+            # spec_mean = np.mean(spectogram)
+            # spec_std = np.std(spectogram)
+            # # Z-score the spectrogram
+            # spectogram = (spectogram - spec_mean) / spec_std
 
             # # Process labels
             ground_truth_labels = np.array(data['labels'], dtype=int)

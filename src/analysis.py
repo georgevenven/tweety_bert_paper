@@ -227,57 +227,34 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     # cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
 
     # So that silences is black for HDBSCAN Plot
-    cmap_ground_truth = glasbey.extend_palette(["#000000"], palette_size=30)
-    cmap_ground_truth = mcolors.ListedColormap(cmap_ground_truth)
-
-    # Compute unique labels and their corresponding colors for HDBSCAN labels
-    # unique_hdbscan_labels = np.unique(hdbscan_labels)
-    # hdbscan_label_colors = {label: cmap_hdbscan_labels.colors[label % len(cmap_hdbscan_labels.colors)] for label in unique_hdbscan_labels}
-
-    # Compute unique labels and their corresponding colors for ground truth labels
-    unique_ground_truth_labels = np.unique(ground_truth_labels)
-    ground_truth_label_colors = {label: cmap_ground_truth.colors[label % len(cmap_ground_truth.colors)] for label in unique_ground_truth_labels}
-
-    # # Convert the color mappings to arrays for saving
-    # hdbscan_colors_array = np.array([hdbscan_label_colors[label] for label in hdbscan_labels])
-    # ground_truth_colors_array = np.array([ground_truth_label_colors[label] for label in ground_truth_labels])
-
-    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr, hdbscan_colors=ground_truth_label_colors, ground_truth_colors=ground_truth_label_colors)
-
-    # Create a figure and a 1x2 grid of subplots
-    fig, axes = plt.subplots(1, 2, figsize=(16, 8))
-   
-    for i, ax in enumerate(axes):
-        # Scatter plot with HDBSCAN labels and ground truth labels
-        if i == 0:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=2, alpha=.1, cmap=cmap_ground_truth)
-        else:
-            scatter = ax.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=2, alpha=.1, cmap=cmap_ground_truth)
-
-        # Remove the axis tick numbers and add large x and y labels
-        ax.tick_params(
-            axis='both',          # changes apply to both axes
-            which='both',         # both major and minor ticks are affected
-            bottom=False,         # ticks along the bottom edge are off
-            left=False,           # ticks along the left edge are off
-            labelbottom=False,    # labels along the bottom edge are off
-            labelleft=False       # labels along the left edge are off
-        )
-        ax.set_xlabel('UMAP 1', fontsize=24)  # Add large x label
-        ax.set_ylabel('UMAP 2', fontsize=24)  # Add large y label
-
-        # Remove the square border around the plot and add a frame
-        for spine in ax.spines.values():
-            spine.set_visible(True)
-
-        # Add titles to the subplots
-        ax.set_title("HDBSCAN Discovered Labels" if i == 0 else "Ground Truth Labels", fontsize=24)
-
-    # Adjust the layout to ensure everything fits without overlap
+    cmap_ground_truth = mcolors.ListedColormap(glasbey.extend_palette(["#000000"], palette_size=30))
+    # Save HDBSCAN labels plot
+    fig_hdbscan, ax_hdbscan = plt.subplots(figsize=(16, 16), edgecolor='black', linewidth=2)
+    scatter_hdbscan = ax_hdbscan.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=70, alpha=.1, cmap=cmap_ground_truth)
+    ax_hdbscan.tick_params(axis='both', which='both', bottom=False, left=False, labelbottom=False, labelleft=False)
+    ax_hdbscan.set_xlabel('UMAP 1', fontsize=48)
+    ax_hdbscan.set_ylabel('UMAP 2', fontsize=48)
+    for spine in ax_hdbscan.spines.values():
+        spine.set_visible(True)
+        spine.set_color('black')
+        spine.set_linewidth(2)
+    ax_hdbscan.set_title("HDBSCAN Discovered Labels", fontsize=48)
     plt.tight_layout()
-    # Save or display the plot
-    plt.savefig(save_name + ".png")
-    # plt.savefig(save_name + ".svg", format='svg')
+    plt.savefig(save_name + "_hdbscan.png")
+
+    # Save ground truth labels plot
+    fig_ground_truth, ax_ground_truth = plt.subplots(figsize=(16, 16), edgecolor='black', linewidth=2)
+    scatter_ground_truth = ax_ground_truth.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=ground_truth_labels, s=70, alpha=.1, cmap=cmap_ground_truth)
+    ax_ground_truth.tick_params(axis='both', which='both', bottom=False, left=False, labelbottom=False, labelleft=False)
+    ax_ground_truth.set_xlabel('UMAP 1', fontsize=48)
+    ax_ground_truth.set_ylabel('UMAP 2', fontsize=48)
+    for spine in ax_ground_truth.spines.values():
+        spine.set_visible(True)
+        spine.set_color('black')
+        spine.set_linewidth(2)
+    ax_ground_truth.set_title("Ground Truth Labels", fontsize=48)
+    plt.tight_layout()
+    plt.savefig(save_name + "_ground_truth.png")
 
     # horrible code, not my fault... 
     if save_dict_for_analysis:

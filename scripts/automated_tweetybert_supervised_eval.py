@@ -63,7 +63,6 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
                                  device=device, lr=1e-5, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
     trainer.train()
 
-
     eval_dataset = SongDataSet_Image(val_dir, num_classes=50, infinite_loader=False)
     eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 

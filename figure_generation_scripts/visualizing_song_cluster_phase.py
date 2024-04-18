@@ -85,7 +85,7 @@ class UMAPSelector:
             y_norm = (y_coords - y_min) / (y_max - y_min)
 
             fig = plt.figure(figsize=(14, 8))
-            gs = fig.add_gridspec(2, 2, width_ratios=[1.5, 6], height_ratios=[1, 1])  # Reduced width ratio for UMAP plots
+            gs = fig.add_gridspec(2, 2, width_ratios=[1.5, 6.75], height_ratios=[1, 1])  # Slightly increased width ratio for UMAP plots for a bit more space, adjusted by 5%
 
             ax_points_gradient = fig.add_subplot(gs[0, 0])
             ax_points_groundtruth = fig.add_subplot(gs[1, 0])
@@ -99,26 +99,27 @@ class UMAPSelector:
 
             ax_points_gradient.scatter(x_norm, y_norm, s=5, c=colors, alpha=0.5)
             ax_points_gradient.set_aspect('equal')
-            ax_points_gradient.set_title('Lasso\'d Points (Gradient)', fontsize=12)
-            ax_points_gradient.set_xlabel('Normalized X', fontsize=10)
-            ax_points_gradient.set_ylabel('Normalized Y', fontsize=10)
+            ax_points_gradient.set_title('Phase', fontsize=18)
+            ax_points_gradient.set_xlabel('Normalized X', fontsize=14)
+            ax_points_gradient.set_ylabel('Normalized Y', fontsize=14)
+            ax_points_gradient.tick_params(axis='both', which='major', labelsize=12)
 
-            ground_truth_colors = [self.ground_truth_colors[label] for label in self.ground_truth_labels[self.selected_points]]  # Use all selected points
+            ground_truth_colors = [self.ground_truth_colors[label] for label in self.ground_truth_labels[self.selected_points]]
             ax_points_groundtruth.scatter(x_norm, y_norm, s=5, c=ground_truth_colors, alpha=0.5)
             ax_points_groundtruth.set_aspect('equal')
-            ax_points_groundtruth.set_title('Lasso\'d Points (Ground Truth)', fontsize=12)
-            ax_points_groundtruth.set_xlabel('Normalized X', fontsize=10)
-            ax_points_groundtruth.set_ylabel('Normalized Y', fontsize=10)
+            ax_points_groundtruth.set_title('Ground Truth', fontsize=18)
+            ax_points_groundtruth.set_xlabel('Normalized X', fontsize=14)
+            ax_points_groundtruth.set_ylabel('Normalized Y', fontsize=14)
+            ax_points_groundtruth.tick_params(axis='both', which='major', labelsize=12)
 
-            ax_spec.imshow(spec_region.T, aspect='auto', origin='lower', cmap='inferno')
-            ax_spec.set_title(f"{random_name} - HDBSCAN Label: {hdbscan_label} - Ground Truth Label: {ground_truth_label}", fontsize=14)
+            ax_spec.imshow(spec_region[:, :100].T, aspect='auto', origin='lower', cmap='viridis')
             ax_spec.set_xticks([])  # Remove x-axis ticks
             ax_spec.set_yticks([])  # Remove y-axis ticks
             ax_spec.set_xlabel('')  # Remove x-axis label
             ax_spec.set_ylabel('')  # Remove y-axis label
 
             divider = make_axes_locatable(ax_spec)
-            ax_gradient = divider.append_axes("bottom", size="5%", pad=0.6)  # Increased padding
+            ax_gradient = divider.append_axes("bottom", size="12.5%", pad=0.525)  # Slightly increased padding for a bit more space, adjusted by 5%
 
             # Calculate the color gradient based on the normalized coordinates of the points corresponding to the spectrogram
             region_x_coords = selected_region_embedding[:, 0]
@@ -132,14 +133,14 @@ class UMAPSelector:
 
             ax_gradient.imshow([region_colors], aspect='auto')
             ax_gradient.set_axis_off()
-            ax_gradient.set_title('Embedding Gradient', fontsize=12, y=-1.0)  # Adjusted title position
+            ax_gradient.set_title('Phase Gradient', fontsize=24, y=-0.65)  # Adjusted title position for more space
 
-            ax_groundtruth = divider.append_axes("bottom", size="5%", pad=0.9)  # Increased padding
+            ax_groundtruth = divider.append_axes("bottom", size="12.5%", pad=0.84)  # Slightly increased padding for a bit more space, adjusted by 5%
             gt_segment_colors = [self.ground_truth_colors[label] for label in self.ground_truth_labels[region]]
             gt_segment_colors_rgb = [mcolors.to_rgb(color) for color in gt_segment_colors]
             ax_groundtruth.imshow([gt_segment_colors_rgb], aspect='auto')
             ax_groundtruth.set_axis_off()
-            ax_groundtruth.set_title('Ground Truth Labels', fontsize=12, y=-1.0)  # Adjusted title position
+            ax_groundtruth.set_title('Ground Truth Class', fontsize=24, y=-0.65)  # Adjusted title position for more space
 
             plt.tight_layout()
 
