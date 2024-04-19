@@ -28,52 +28,52 @@ class LinearProbeModel(nn.Module):
             self.pca = PCA(n_components=classifier_dims, random_state=42)
 
     def forward(self, input):
-        with autocast():  # Use autocast for the forward pass to enable mixed precision
-            if self.model_type == "neural_net":
-                outputs, layers = self.model.inference_forward(input)
+        # with autocast():  # Use autocast for the forward pass to enable mixed precision
+        if self.model_type == "neural_net":
+            outputs, layers = self.model.inference_forward(input)
 
-                if self.layer_id == "embedding":
-                    features = outputs 
-                else:
-                    features = layers[self.layer_num][self.layer_id]
-                logits = self.classifier(features)
+            if self.layer_id == "embedding":
+                features = outputs 
+            else:
+                features = layers[self.layer_num][self.layer_id]
+            logits = self.classifier(features)
 
-            elif self.model_type == "umap":
-                # reformat for UMAP 
-                # remove channel dim intended for conv network 
-                input = input[:,0,:,:]
-                output_shape = input.shape
-                input = input.reshape(-1,input.shape[1])
-                input = input.detach().cpu().numpy()
-                reduced = self.model.transform(input)
-                reduced = torch.Tensor(reduced).to(self.device)
-                logits = self.classifier(reduced)
-                
-                # shape is batch x num_classes (how many classes in the dataset) x sequence length 
-                logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
+        elif self.model_type == "umap":
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            input = input[:,0,:,:]
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
+            input = input.detach().cpu().numpy()
+            reduced = self.model.transform(input)
+            reduced = torch.Tensor(reduced).to(self.device)
+            logits = self.classifier(reduced)
+            
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length 
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
-            elif self.model_type == "pca":
-                # reformat for UMAP 
-                # remove channel dim intended for conv network 
-                input = input[:,0,:,:]
-                output_shape = input.shape
-                input = input.reshape(-1,input.shape[1])
-                input = input.detach().cpu().numpy()
-                reduced = self.pca.fit_transform(input)
-                reduced = torch.Tensor(reduced).to(self.device)
-                logits = self.classifier(reduced)
-                # shape is batch x num_classes (how many classes in the dataset) x sequence length
-                logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
+        elif self.model_type == "pca":
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            input = input[:,0,:,:]
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
+            input = input.detach().cpu().numpy()
+            reduced = self.pca.fit_transform(input)
+            reduced = torch.Tensor(reduced).to(self.device)
+            logits = self.classifier(reduced)
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
-            elif self.model_type == "raw":
-                # reformat for UMAP 
-                # remove channel dim intended for conv network 
-                input = input[:,0,:,:]
-                output_shape = input.shape
-                input = input.reshape(-1,input.shape[1])
-                logits = self.classifier(input)
-                # shape is batch x num_classes (how many classes in the dataset) x sequence length
-                logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
+        elif self.model_type == "raw":
+            # reformat for UMAP 
+            # remove channel dim intended for conv network 
+            input = input[:,0,:,:]
+            output_shape = input.shape
+            input = input.reshape(-1,input.shape[1])
+            logits = self.classifier(input)
+            # shape is batch x num_classes (how many classes in the dataset) x sequence length
+            logits = logits.reshape(output_shape[0],output_shape[2],self.num_classes)
 
         return logits
     
@@ -106,8 +106,9 @@ class LinearProbeModel(nn.Module):
     def to(self, device):
         self.device = device
         return super(LinearProbeModel, self).to(device)
+
 class LinearProbeTrainer():
-    def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=100, desired_total_batches=1e4, patience=8, use_tqdm=True, moving_avg_window = 200):
+    def __init__(self, model, train_loader, test_loader, device, lr=1e-2, plotting=False, batches_per_eval=200, desired_total_batches=1e4, patience=8, use_tqdm=True, moving_avg_window = 1):
         self.device = device
         self.model = model.to(self.device)
         self.train_loader = train_loader
@@ -122,15 +123,8 @@ class LinearProbeTrainer():
         self.scaler = GradScaler()  # Initialize GradScaler for mixed precision
 
     def frame_error_rate(self, y_pred, y_true):
-        # print(f"Shapes before permute: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
         y_pred = y_pred.permute(0,2,1)
-        # print(f"Shapes after permute: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
-
         y_pred = y_pred.argmax(-1)
-        # print(f"Shapes after argmax: y_pred: {y_pred.shape}, y_true: {y_true.shape}")
-
-        # print(f"First 10 elements of y_pred: {y_pred.view(-1)[:10].tolist()}")
-        # print(f"First 10 elements of y_true: {y_true.view(-1)[:10].tolist()}")
 
         mismatches = (y_pred != y_true).float()
         error = mismatches.sum() / y_true.numel()
@@ -149,10 +143,10 @@ class LinearProbeTrainer():
                 spectrogram, label = next(test_iter)
 
             spectrogram, label = spectrogram.to(self.device), label.to(self.device)
-            with autocast():  # Use autocast for the validation pass
-                output = self.model.forward(spectrogram)
-                label = label.argmax(dim=-1)
-                output = output.permute(0,2,1)
+            # with autocast():  # Use autocast for the validation pass
+            output = self.model.forward(spectrogram)
+            label = label.argmax(dim=-1)
+            output = output.permute(0,2,1)
 
             loss = self.model.cross_entropy_loss(predictions=output, targets=label)
             total_val_loss = loss.item()
@@ -188,17 +182,16 @@ class LinearProbeTrainer():
             spectrogram, label = spectrogram.to(self.device), label.to(self.device)
             self.optimizer.zero_grad()
          
-            with autocast():
-                output = self.model.forward(spectrogram)
+            output = self.model.forward(spectrogram)
 
-                label = label.argmax(dim=-1)
-                output = output.permute(0,2,1)
+            label = label.argmax(dim=-1)
+            output = output.permute(0,2,1)
 
-                loss = self.model.cross_entropy_loss(predictions=output, targets=label)
-    
-            self.scaler.scale(loss).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            loss = self.model.cross_entropy_loss(predictions=output, targets=label)
+
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
             total_batches += 1
             if total_batches % self.batches_per_eval == 0:
@@ -247,86 +240,97 @@ class LinearProbeTrainer():
         plt.plot(frame_error_rate_list, label='Frame Error Rate', color='red')
         plt.title('Frame Error Rate over Steps')
         plt.xlabel('Steps')
-        plt.ylabel('Error Rate (%)')1. Earth Signs
+        plt.ylabel('Error Rate (%)')
 
         plt.legend()
 
         plt.tight_layout()
         plt.show()
 
+
 class ModelEvaluator:
-    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', filter_unseen_classes=False, train_dir=None):
+    def __init__(self, model, test_loader, num_classes=21, device='cuda:0', use_tqdm=True, filter_unseen_classes=False, train_dir=None):
         self.model = model.to(device)
         self.test_loader = test_loader
         self.num_classes = num_classes
         self.device = device
+        self.use_tqdm = use_tqdm
         self.filter_unseen_classes = filter_unseen_classes
-        self.seen_classes = set(range(num_classes))  # By default, consider all classes as seen
+        self.seen_classes = set(range(num_classes))  # Assume all classes are seen by default
         if filter_unseen_classes and train_dir:
             self.seen_classes = self.count_labels_in_training_set(train_dir)
 
     def count_labels_in_training_set(self, train_dir):
         seen_classes = set()
-        for file in os.listdir(train_dir):
-            if file.endswith('.npz'):
-                data = np.load(os.path.join(train_dir, file))
+        for file_name in os.listdir(train_dir):
+            if file_name.endswith('.npz'):
+                data = np.load(os.path.join(train_dir, file_name))
                 labels = data['labels']
                 unique_labels = set(np.unique(labels))
                 seen_classes.update(unique_labels)
         return seen_classes
 
-    def validate_model_multiple_passes(self, num_passes=1, max_batches=10000):
+    def validate_model_multiple_passes(self, num_passes=1, max_batches=1e4, spec_height = 196, context = 1000 ):
         self.model.eval()
         errors_per_class = [0] * self.num_classes
         correct_per_class = [0] * self.num_classes
         total_frames = 0
         total_errors = 0
 
-        total_iterations = num_passes * min(max_batches, len(self.test_loader))
-        progress_bar = tqdm(total=total_iterations, desc="Evaluating", unit="batch")
-
+        total_iterations = max(max_batches, len(self.test_loader))
+        progress_bar = tqdm(total=total_iterations, desc="Evaluating", unit="batch") if self.use_tqdm else None
         for _ in range(num_passes):
             with torch.no_grad():
-                for i, (waveform, label) in enumerate(self.test_loader):
-                    if i >= max_batches:
-                        break
+                for spec, label in self.test_loader:
+                    spec, label = spec.to(self.device), label.to(self.device)
+                    # Removed print statements as per instructions
 
-                    waveform = waveform.to(self.device)
-                    label = label.to(self.device)
+                    # this is all done to ensure that all of the eval dataset is seen by the model 
+                    # First, pad spec to the nearest multiple of 500
+                    pad_size = (context - spec.size(1) % context) % context
+                    spec = F.pad(spec, (0, 0, 0, pad_size))
+                    label = F.pad(label, (0, 0, 0, pad_size))
 
-                    output = self.model.forward(waveform)
-                    label = label.squeeze(1).permute(0, 2, 1)
+                    # Now, reshape this to be [n x 500 x 513]
+                    spec = spec.reshape(-1, context, spec_height)
+                    label = label.reshape(-1, context, self.num_classes)
 
-                    predicted_labels = output.argmax(dim=-2)
-                    true_labels = label.argmax(dim=-2)
+                    spec = spec.unsqueeze(1)
+
+                    output = self.model.forward(spec.permute(0,1,3,2))
+
+                    label = label.squeeze(1)
+
+                    predicted_labels = output.argmax(dim=-1)
+                    true_labels = label.argmax(dim=-1)
 
                     correct = (predicted_labels == true_labels)
                     incorrect = ~correct
 
                     for cls in range(self.num_classes):
                         if self.filter_unseen_classes and cls not in self.seen_classes:
-                            continue  # Skip unseen classes
+                            continue  # Skip classes not seen in training
 
                         class_mask = true_labels == cls
                         incorrect_class = incorrect & class_mask
 
                         errors_per_class[cls] += incorrect_class.sum().item()
-                        correct_per_class[cls] += (correct_class := correct & class_mask).sum().item()
+                        correct_per_class[cls] += (correct & class_mask).sum().item()
 
                         total_frames += class_mask.sum().item()
                         total_errors += incorrect_class.sum().item()
 
-                    progress_bar.update(1)
+                    if progress_bar is not None:
+                        progress_bar.update(1)
 
-        progress_bar.close()
+        if progress_bar is not None:
+            progress_bar.close()
 
         class_frame_error_rates = {
             cls: (errors / (errors + correct) * 100 if errors + correct > 0 else float('nan'))
             for cls, (errors, correct) in enumerate(zip(errors_per_class, correct_per_class))
         }
-
         total_frame_error_rate = (total_errors / total_frames * 100 if total_frames > 0 else float('nan'))
-
         return class_frame_error_rates, total_frame_error_rate
 
     def save_results(self, class_frame_error_rates, total_frame_error_rate, folder_path, layer_id=None, layer_num=None):

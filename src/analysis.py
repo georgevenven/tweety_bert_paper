@@ -172,6 +172,10 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
             predictions = predictions.flatten(0,1)
             predictions_arr.append(predictions.detach().cpu().numpy())
 
+        else:
+            data = data.unsqueeze(1)
+            data = data.permute(0,1,3,2)
+
         # remove channel dimension 
         data = data.squeeze(1)
         spec = data
@@ -190,6 +194,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         
         total_samples += spec.shape[0]
 
+
     # convert the list of batch * samples * features to samples * features 
     ground_truth_labels = np.concatenate(ground_truth_labels_arr, axis=0)
     spec_arr = np.concatenate(spec_arr, axis=0)
@@ -198,6 +203,10 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         predictions = np.concatenate(predictions_arr, axis=0)
     else:
         predictions = spec_arr
+
+    print(f"spec arr shape {spec_arr.shape}")
+    print(f"ground truth labels shape {ground_truth_labels.shape}")
+    print(f"predictions arr shape {predictions.shape}")
 
     # razor off any extra datapoints 
     if samples > len(predictions):
@@ -256,53 +265,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     plt.tight_layout()
     plt.savefig(save_name + "_ground_truth.png")
 
-    # horrible code, not my fault... 
-    if save_dict_for_analysis:
-        # ## the remaning code has to do with creating a npz file dict that can be later used for analyzing this data 
-
-        with open(file_path, 'rb') as file:
-            color_map_data = pickle.load(file)
-
-        label_to_color = {label: tuple(color) for label, color in color_map_data.items()}
-
-        hdbscan_labels = hdbscan_labels + 1
-        print(f"embedings arr {embedding_outputs.shape}")
-
-        # start end 
-        step_size = 2.7 * time_bins_per_umap_point
-
-        emb_start = np.arange(0, step_size * embedding_outputs.shape[0], step_size)
-        emb_end = emb_start + step_size 
-        embStartEnd = np.stack((emb_start, emb_end), axis=0)
-        print(f"embstartend {embStartEnd.shape}")
-
-        colors_for_points = np.array([label_to_color[lbl] for lbl in hdbscan_labels])
-        print(f"mean_colors_per_minispec {colors_for_points.shape}")
-
-        colors_per_timepoint = []
-
-        hdbscan_labels = hdbscan_labels.reshape(-1, 1)
-        for label_row in hdbscan_labels:
-            avg_color = label_to_color[int(label_row)]
-            colors_per_timepoint.append(avg_color)
-        colors_per_timepoint = np.array(colors_per_timepoint)
-
-        print(f"colors_per_timepoint {colors_per_timepoint.shape}")
-
-        embVals = embedding_outputs
-        behavioralArr = spec_arr.T
-        mean_colors_per_minispec = colors_for_points
-
-        print(f"behavioral arr{behavioralArr.shape}")
-
-        # Save the arrays into a single .npz file
-        np.savez_compressed('/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/umap_dict_file.npz', 
-                            embStartEnd=embStartEnd, 
-                            embVals=embVals, 
-                            behavioralArr=behavioralArr, 
-                            mean_colors_per_minispec=mean_colors_per_minispec, 
-                            colors_per_timepoint=colors_per_timepoint)
-
+    
 
 def apply_windowing(arr, window_size, stride, flatten_predictions=False):
     """

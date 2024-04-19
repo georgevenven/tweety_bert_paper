@@ -55,12 +55,12 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
     val_loader = DataLoader(val_dataset, batch_size=24, shuffle=False, collate_fn=collate_fn)
 
     # Initialize and train classifier model, the num classes is a hack and needs to be fixed later on by removing one hot encodings 
-    classifier_model = LinearProbeModel(num_classes=50, model_type="neural_net", model=tweety_bert_model,
+    classifier_model = LinearProbeModel(num_classes=21, model_type="neural_net", model=tweety_bert_model,
                                         freeze_layers=True, layer_num=-2, layer_id="attention_output", classifier_dims=196)
 
     classifier_model = classifier_model.to(device)
     trainer = LinearProbeTrainer(model=classifier_model, train_loader=train_loader, test_loader=val_loader,
-                                 device=device, lr=1e-5, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
+                                 device=device, lr=1e-4, plotting=False, batches_per_eval=50, desired_total_batches=1e4, patience=4)
     trainer.train()
 
     eval_dataset = SongDataSet_Image(val_dir, num_classes=50, infinite_loader=False)
@@ -68,7 +68,7 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
 
     # Evaluate the trained model
     evaluator = ModelEvaluator(model=classifier_model, test_loader=eval_loader, num_classes=50,
-                               device='cuda:0', use_tqdm=True, filter_unseen_classes=True, train_dir=train_dir)
+                               device='cuda:0', filter_unseen_classes=True, train_dir=train_dir)
     class_frame_error_rates, total_frame_error_rate = evaluator.validate_model_multiple_passes(num_passes=1, max_batches=1250)
 
     # Use the name of the current cross-validation directory for the results folder

@@ -297,10 +297,8 @@ def frame_error_rate(y_pred, y_true):
     error = mismatches.sum() / y_true.size(0) / y_true.size(1)
     return error * 100
 
-
-
 class TweetyNetTrainer:
-    def __init__(self, model, train_loader, test_loader, device, optimizer, desired_total_steps=1e4, patience=4):
+    def __init__(self, model, train_loader, test_loader, device, optimizer, desired_total_steps=1e4, patience=4, batches_per_eval=50, plotting=False, moving_avg_window=1):
         self.model = model
         self.train_loader = train_loader
         self.test_loader = test_loader
@@ -308,73 +306,107 @@ class TweetyNetTrainer:
         self.optimizer = optimizer
         self.desired_total_steps = desired_total_steps
         self.patience = patience
+        self.batches_per_eval = batches_per_eval
         self.total_steps = 0
         self.best_val_loss = float('inf')
         self.stop_training = False
         self.loss_list = []
         self.val_loss_list = []
         self.frame_error_rate_list = []
+        self.plotting = plotting
+        self.moving_avg_window = moving_avg_window
 
-    def validate_model(self):
+    def moving_average(self, values, window):
+        """Simple moving average over a list of values"""
+        weights = np.repeat(1.0, window) / window
+        sma = np.convolve(values, weights, 'valid')
+        return sma.tolist()
+
+    def validate_model(self, test_iter):
         self.model.eval()
         total_val_loss = 0
         total_frame_error = 0
-        with torch.no_grad():  # Ensure no gradients are calculated during validation
-            for spectrogram, label in self.test_loader:  # Iterate through the entire test dataset
-                spectrogram = spectrogram.to(self.device)
-                label = label.to(self.device)
-                output = self.model(spectrogram)  # Use the model to predict
-                label = label.squeeze(1)
-                label_indices = label.argmax(dim=-1)
-                loss = self.model.loss_function(y_pred=output, y_true=label_indices)
+        with torch.no_grad():
+            try:
+                spectrogram, label = next(test_iter)
+            except StopIteration:
+                test_iter = iter(self.test_loader)  # Reinitialize the iterator
+                spectrogram, label = next(test_iter)
+            spectrogram = spectrogram.to(self.device)
+            label = label.to(self.device)
+            output = self.model(spectrogram)  # Use the model to predict
+            label = label.squeeze(1)
+            label_indices = label.argmax(dim=-1)
+            loss = self.model.loss_function(y_pred=output, y_true=label_indices)
 
-                total_val_loss += loss.item()
-                total_frame_error += frame_error_rate(output, label_indices).item()
+            total_val_loss = loss.item()
+            total_frame_error = frame_error_rate(output, label_indices).item()
 
-        avg_val_loss = total_val_loss / len(self.test_loader)  # Calculate average validation loss
-        avg_frame_error = total_frame_error / len(self.test_loader)  # Calculate average frame error rate
-        return avg_val_loss, avg_frame_error
+        return total_val_loss, total_frame_error
 
     def train(self):
+        best_val_loss = float('inf')
+        num_val_no_improve = 0
+
+        raw_loss_list, raw_val_loss_list, raw_frame_error_rate_list = [], [], []
+        moving_avg_val_loss_list, moving_avg_frame_error_list = [], []
+
+        train_iter = iter(self.train_loader)
+        test_iter = iter(self.test_loader)
+
         while self.total_steps < self.desired_total_steps and not self.stop_training:
+            try:
+                spectrogram, label = next(train_iter)
+            except StopIteration:
+                train_iter = iter(self.train_loader)  # Reinitialize the iterator
+                spectrogram, label = next(train_iter)
+
             self.model.train()
-            for spectrogram, label in self.train_loader:  # Iterate through the entire training dataset
-                if self.total_steps >= self.desired_total_steps or self.stop_training:
-                    break
+            spectrogram = spectrogram.to(self.device)
+            label = label.to(self.device)
+            output = self.model(spectrogram)  # Use the model to predict
+            label = label.squeeze(1)
+            label = label.permute(0, 2, 1)
+            label_indices = label.argmax(dim=-2)
+            loss = self.model.loss_function(y_pred=output, y_true=label_indices)
 
-                spectrogram = spectrogram.to(self.device)
-                label = label.to(self.device)
-                output = self.model(spectrogram)  # Use the model to predict
-                label = label.squeeze(1)
-                label = label.permute(0, 2, 1)
-                label_indices = label.argmax(dim=-2)
-                loss = self.model.loss_function(y_pred=output, y_true=label_indices)
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+            self.total_steps += 1
 
-                self.total_steps += 1
+            if self.total_steps % self.batches_per_eval == 0:
+                val_loss, frame_error = self.validate_model(test_iter)
 
-            avg_val_loss, avg_frame_error = self.validate_model() # Validate after each epoch
+                raw_loss_list.append(loss.item())
+                raw_val_loss_list.append(val_loss)
+                raw_frame_error_rate_list.append(frame_error)
 
-            if avg_val_loss < self.best_val_loss:
-                self.best_val_loss = avg_val_loss
-                num_val_no_improve = 0
-            else:
-                num_val_no_improve += 1
-                if num_val_no_improve >= self.patience:
-                    print("Early stopping triggered")
-                    self.stop_training = True
-                    break
+                if len(raw_val_loss_list) >= self.moving_avg_window:
+                    moving_avg_val_loss = np.mean(raw_val_loss_list[-self.moving_avg_window:])
+                    moving_avg_frame_error = np.mean(raw_frame_error_rate_list[-self.moving_avg_window:])
+                    moving_avg_val_loss_list.append(moving_avg_val_loss)
+                    moving_avg_frame_error_list.append(moving_avg_frame_error)
 
-            self.loss_list.append(loss.item())
-            self.val_loss_list.append(avg_val_loss)
-            self.frame_error_rate_list.append(avg_frame_error)
+                    if moving_avg_val_loss < best_val_loss:
+                        best_val_loss = moving_avg_val_loss
+                        num_val_no_improve = 0
+                    else:
+                        num_val_no_improve += 1
+                        if num_val_no_improve >= self.patience:
+                            print("Early stopping triggered")
+                            self.stop_training = True
+                            break
+                
+                print(f'Step {self.total_steps}: Train Loss {loss.item():.4f} FER = {frame_error:.2f}%, Val Loss = {val_loss:.4f}')
 
-            print(f'After {self.total_steps} Steps, Training Loss: {np.mean(self.loss_list[-10:]):.2e}, Validation Loss: {np.mean(self.val_loss_list[-10:]):.2e}, Frame Error Rate: {np.mean(self.frame_error_rate_list[-10:]):.2f}%')
+            if self.stop_training:
+                break
 
-        # self.plot_results()
+            if self.plotting:
+                self.plot_results(raw_loss_list, moving_avg_val_loss_list, moving_avg_frame_error_list)
+
 
     def plot_results(self):
         plt.figure(figsize=(10, 5))

@@ -85,7 +85,6 @@ for idx, (train_dir, val_dir) in enumerate(cv_pairs):
         optimizer=optimizer,
         desired_total_steps=1e4,  # Set your desired total steps
         patience=4  # Set your patience for early stopping
-
     )
 
     # Start the training process
