@@ -14,7 +14,7 @@ class UMAPSelector:
         data = np.load(file_path, allow_pickle=True)
         self.embedding = data["embedding_outputs"]
         self.spec = data["s"]
-        self.labels = data["hdbscan_labels"]
+        self.labels = data["ground_truth_labels"]
         self.ground_truth_labels = data["ground_truth_labels"]
         self.ground_truth_colors = data["ground_truth_colors"].item()
         self.ground_truth_colors[int(1)] = "#000000"  # Add black to dictionary with key 0
@@ -23,26 +23,16 @@ class UMAPSelector:
         self.max_length = max_length
 
     def find_random_contiguous_region(self, points, labels):
-        contiguous_regions = []
-        current_region = []
-        current_label = None
-        for i, point in enumerate(points):
-            if labels[point] != current_label:
-                if len(current_region) > self.max_length:
-                    contiguous_regions.append((current_region, current_label))
-                current_region = [point]
-                current_label = labels[point]
-            else:
-                current_region.append(point)
-        if len(current_region) > self.max_length:
-            contiguous_regions.append((current_region, current_label))
-
-        if len(contiguous_regions) > 0:
-            random.seed(int(time.time()))  # Set random seed based on current time
-            random_region, random_label = random.choice(contiguous_regions)
-            return random_region[:self.max_length], random_label
+        print(points)
+        if len(points) > self.max_length:
+            start_index = random.randint(0, len(points) - self.max_length)
+            end_index = start_index + self.max_length
+            random_region = points[start_index:end_index]
+            return random_region
         else:
-            return [], None
+            random_region = points
+            return random_region
+
 
     def onselect(self, verts):
         path = Path(verts)
@@ -68,7 +58,7 @@ class UMAPSelector:
 
     def plot_selected_region(self):
         if self.selected_points is not None:
-            region, hdbscan_label = self.find_random_contiguous_region(self.selected_points, self.labels)
+            region = self.find_random_contiguous_region(self.selected_points, self.labels)
             if len(region) == 0:
                 return
             spec_region = self.spec[region]
@@ -112,7 +102,7 @@ class UMAPSelector:
             ax_points_groundtruth.set_ylabel('Normalized Y', fontsize=14)
             ax_points_groundtruth.tick_params(axis='both', which='major', labelsize=12)
 
-            ax_spec.imshow(spec_region[:, :100].T, aspect='auto', origin='lower', cmap='viridis')
+            ax_spec.imshow(spec_region[:, :250].T, aspect='auto', origin='lower', cmap='viridis')
             ax_spec.set_xticks([])  # Remove x-axis ticks
             ax_spec.set_yticks([])  # Remove y-axis ticks
             ax_spec.set_xlabel('')  # Remove x-axis label
@@ -145,9 +135,9 @@ class UMAPSelector:
             plt.tight_layout()
 
             os.makedirs("imgs/selected_regions", exist_ok=True)
-            fig.savefig(f"imgs/selected_regions/{random_name}_hdbscan_{hdbscan_label}_groundtruth_{ground_truth_label}.png")
+            fig.savefig(f"imgs/selected_regions/{random_name}_groundtruth_{ground_truth_label}.png")
             plt.close(fig)
 
-file_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/labels_LLB11_Yarden_FreqTruncated_Trained_Model_attention-2_500k.npz"
+file_path = "/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/labels_Single_Song.npz"
 selector = UMAPSelector(file_path, max_length=500)
 selector.plot_umap_with_selection()

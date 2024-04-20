@@ -208,13 +208,13 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     print(f"ground truth labels shape {ground_truth_labels.shape}")
     print(f"predictions arr shape {predictions.shape}")
 
-    # razor off any extra datapoints 
-    if samples > len(predictions):
-        samples = len(predictions)
-    else:
-        predictions = predictions[:samples]
-        ground_truth_labels = ground_truth_labels[:samples]
-        spec_arr = spec_arr[:samples]
+    # # razor off any extra datapoints 
+    # if samples > len(predictions):
+    #     samples = len(predictions)
+    # else:
+    #     predictions = predictions[:samples]
+    #     ground_truth_labels = ground_truth_labels[:samples]
+    #     spec_arr = spec_arr[:samples]
 
     print(f"predictions shape {predictions.shape}")
     # Fit the UMAP reducer       
@@ -222,6 +222,19 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
     embedding_outputs = reducer.fit_transform(predictions)
     hdbscan_labels = generate_hdbscan_labels(embedding_outputs, min_samples=1, min_cluster_size=int(samples/100))
+
+    cmap_ground_truth = glasbey.extend_palette(["#000000"], palette_size=30)
+    cmap_ground_truth = mcolors.ListedColormap(cmap_ground_truth)
+
+    # Compute unique labels and their corresponding colors for ground truth labels
+    unique_ground_truth_labels = np.unique(ground_truth_labels)
+    ground_truth_label_colors = {label: cmap_ground_truth.colors[label % len(cmap_ground_truth.colors)] for label in unique_ground_truth_labels}
+
+    # # Convert the color mappings to arrays for saving
+    # hdbscan_colors_array = np.array([hdbscan_label_colors[label] for label in hdbscan_labels])
+    # ground_truth_colors_array = np.array([ground_truth_label_colors[label] for label in ground_truth_labels])
+
+    np.savez(f"files/labels_{save_name}", embedding_outputs=embedding_outputs, hdbscan_labels=hdbscan_labels, ground_truth_labels=ground_truth_labels, s=spec_arr, hdbscan_colors=ground_truth_label_colors, ground_truth_colors=ground_truth_label_colors)
 
     # ground_truth_labels = syllable_to_phrase_labels(arr=ground_truth_labels,silence=0)
     
