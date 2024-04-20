@@ -18,95 +18,114 @@ config_path = "experiments/Yarden_FreqTruncated/config.json"
 model = load_model(config_path, weights_path)
 model = model.to(device)
 
-# # TweetyBERT 128 OG Model 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/yarden_OG_llb16",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-2, 
-# dict_key="attention_output", 
-# context=1000, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="LLB16_Fig1_Draft",
-# )
-
 # TweetyBERT 128 OG Model 
 plot_umap_projection(
 model=model, 
 device=device, 
 data_dir="/media/george-vengrovski/disk1/yarden_OG_llb16",
-samples=1e3, 
+samples=5e5, 
 file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 layer_index=-2, 
 dict_key="attention_output", 
 context=1000, 
 raw_spectogram=False,
 save_dict_for_analysis = False,
-save_name="Single_Song",
+save_name="LLB16_Fig1_Draft",
 )
 
 # TweetyBERT 128 OG Model 
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb16",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=-2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=True,
+save_dict_for_analysis = False,
+save_name="LLB16_Fig1_RawSpec",
+)
+
+TweetyBERT 128 OG Model 
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb11",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=-2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=False,
+save_dict_for_analysis = False,
+save_name="LLB11_Fig1_Draft",
+)
+
+# TweetyBERT 128 OG Model 
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb11",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=-2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=True,
+save_dict_for_analysis = False,
+save_name="LLB11_Fig1_Draft_RawSpec",
+)
+
+# TweetyBERT 128 OG Model 
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb3",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=-2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=False,
+save_dict_for_analysis = False,
+save_name="LLB3_Fig1_Draft",
+)
+
+# TweetyBERT 128 OG Model 
+plot_umap_projection(
+model=model, 
+device=device, 
+data_dir="/media/george-vengrovski/disk1/yarden_OG_llb3",
+samples=5e5, 
+file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
+layer_index=-2, 
+dict_key="attention_output", 
+context=1000, 
+raw_spectogram=True,
+save_dict_for_analysis = False,
+save_name="LLB3_Fig1_Draft_RawSpec",
+)
+
+
+
+# ### Single Song ### 
+# # TweetyBERT 128 OG Model 
 # plot_umap_projection(
 # model=model, 
 # device=device, 
-# data_dir="/media/george-vengrovski/disk1/yarden_OG_llb11",
-# samples=5e5, 
+# data_dir="/media/george-vengrovski/disk1/overfitting_dataset",
+# samples=2e3, 
 # file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
 # layer_index=-2, 
 # dict_key="attention_output", 
 # context=1000, 
 # raw_spectogram=False,
 # save_dict_for_analysis = False,
-# save_name="LLB11_Fig1_Draft",
+# save_name="Single_Song",
 # )
-
-# # TweetyBERT 128 OG Model 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/yarden_OG_llb11",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-2, 
-# dict_key="attention_output", 
-# context=1000, 
-# raw_spectogram=True,
-# save_dict_for_analysis = False,
-# save_name="LLB11_Fig1_Draft_RawSpec",
-# )
-
-# # TweetyBERT 128 OG Model 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/yarden_OG_llb3",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-2, 
-# dict_key="attention_output", 
-# context=1000, 
-# raw_spectogram=False,
-# save_dict_for_analysis = False,
-# save_name="LLB3_Fig1_Draft",
-# )
-
-# # TweetyBERT 128 OG Model 
-# plot_umap_projection(
-# model=model, 
-# device=device, 
-# data_dir="/media/george-vengrovski/disk1/yarden_OG_llb3",
-# samples=5e5, 
-# file_path="/home/george-vengrovski/Documents/projects/tweety_bert_paper/files/category_colors_llb3.pkl", 
-# layer_index=-2, 
-# dict_key="attention_output", 
-# context=1000, 
-# raw_spectogram=True,
-# save_dict_for_analysis = False,
-# save_name="LLB3_Fig1_Draft_RawSpec",
-# )
+# ### ### 
 
 
 

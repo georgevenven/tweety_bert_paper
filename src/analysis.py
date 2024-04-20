@@ -125,12 +125,15 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
         try:
             # Retrieve the next batch
             data, ground_truth_label = next(data_loader_iter)
+
             num_classes = ground_truth_label.shape[-1]
-            
+            original_data_length = data.shape[1]
+            original_label_length = ground_truth_label.shape[1]
+
             # Pad data to the nearest context size in the time dimension
             total_time = data.shape[1]  # Adjusted for batch first
             pad_size_time = (context - (total_time % context)) % context  # Adjusted padding calculation for time dimension
-            data = F.pad(data, (0, 0, pad_size_time, 0), 'constant', 0)  # Adjusted padding for batch first in time dimension
+            data = F.pad(data, (0, 0, 0, pad_size_time), 'constant', 0)  # Adjusted padding for batch first in time dimension
 
             # Calculate the number of context windows in the song
             num_times = data.shape[1] // context  # Adjustment needed here as we're padding time
@@ -143,7 +146,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
             # Pad ground truth labels to match data padding in time dimension
             total_length_labels = ground_truth_label.shape[1]  # Adjusted for batch first
             pad_size_labels_time = (context - (total_length_labels % context)) % context  # Adjusted padding calculation for time dimension
-            ground_truth_label = F.pad(ground_truth_label, (0, 0, pad_size_time, 0), 'constant', 0)  # Adjusted padding for batch first in time dimension
+            ground_truth_label = F.pad(ground_truth_label, (0, 0, 0, pad_size_time), 'constant', 0)  # Adjusted padding for batch first in time dimension
 
             ground_truth_label = ground_truth_label.reshape(batch * num_times, context, num_classes)  # Adjusted for batch first
 
@@ -154,7 +157,7 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
 
         if raw_spectogram == False:
             data = data.unsqueeze(1)
-            data = data.permute(0,1,3,2)
+            data = data.permute(0, 1, 3, 2)
 
             _, layers = model.inference_forward(data.to(device))
 
@@ -165,27 +168,27 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
                 print(f"Invalid key: {dict_key}. Skipping this batch.")
                 continue
 
-            batches, time_bins, features = output.shape 
-            # data shape [0] is the number of batches, 
+            batches, time_bins, features = output.shape
             predictions = output.reshape(batches, time_bins, features)
-            # combine the batches and number of samples per context window 
-            predictions = predictions.flatten(0,1)
+            predictions = predictions.flatten(0, 1)
+            predictions = predictions[:original_data_length]  # Remove padding from predictions
+
             predictions_arr.append(predictions.detach().cpu().numpy())
 
         else:
             data = data.unsqueeze(1)
-            data = data.permute(0,1,3,2)
+            data = data.permute(0, 1, 3, 2)
 
-        # remove channel dimension 
         data = data.squeeze(1)
         spec = data
-
-        # set the features (freq axis to be the last dimension)
         spec = spec.permute(0, 2, 1)
-        # combine batches and timebins
+
         spec = spec.flatten(0, 1)
+        spec = spec[:original_data_length]  # Remove padding from spec
+
 
         ground_truth_label = ground_truth_label.flatten(0, 1)
+        ground_truth_label = ground_truth_label[:original_label_length]  # Remove padding from labels
 
         ground_truth_label = torch.argmax(ground_truth_label, dim=-1)
 
@@ -204,19 +207,21 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     else:
         predictions = spec_arr
 
-    print(f"spec arr shape {spec_arr.shape}")
-    print(f"ground truth labels shape {ground_truth_labels.shape}")
-    print(f"predictions arr shape {predictions.shape}")
+    plt.imshow(spec_arr)
+    plt.show()
 
-    # # razor off any extra datapoints 
-    # if samples > len(predictions):
-    #     samples = len(predictions)
-    # else:
-    #     predictions = predictions[:samples]
-    #     ground_truth_labels = ground_truth_labels[:samples]
-    #     spec_arr = spec_arr[:samples]
+    # razor off any extra datapoints 
+    if samples > len(predictions):
+        samples = len(predictions)
+    else:
+        predictions = predictions[:samples]
+        ground_truth_labels = ground_truth_labels[:samples]
+        spec_arr = spec_arr[:samples]
 
     print(f"predictions shape {predictions.shape}")
+
+
+
     # Fit the UMAP reducer       
     reducer = umap.UMAP(n_neighbors=200, min_dist=0, n_components=2, metric='cosine')
 
@@ -249,7 +254,6 @@ def plot_umap_projection(model, device, data_dir="test_llb16",  samples=100, fil
     # cmap_hdbscan_labels = mcolors.ListedColormap(cmap_hdbscan_labels)
 
     # So that silences is black for HDBSCAN Plot
-    cmap_ground_truth = mcolors.ListedColormap(glasbey.extend_palette(["#000000"], palette_size=30))
     # Save HDBSCAN labels plot
     fig_hdbscan, ax_hdbscan = plt.subplots(figsize=(16, 16), edgecolor='black', linewidth=2)
     scatter_hdbscan = ax_hdbscan.scatter(embedding_outputs[:, 0], embedding_outputs[:, 1], c=hdbscan_labels, s=70, alpha=.1, cmap=cmap_ground_truth)

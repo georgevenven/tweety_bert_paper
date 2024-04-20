@@ -31,13 +31,12 @@ def create_animated_gif(embedding, ground_truth_labels, ground_truth_colors, hdb
     for label in unique_labels:
         mask = ground_truth_labels == label
         color = ground_truth_colors[label]
-        ax_anim.scatter(x_norm[mask], y_norm[mask], s=2, alpha=0.1, color=color, label=f'Ground Truth Label {label}')
+        ax_anim.scatter(x_norm[mask], y_norm[mask], s=40, alpha=0.5, color=color, label=f'Ground Truth Label {label}')
 
     ax_anim.set_aspect('equal')
-    ax_anim.set_title('Animated Dots', fontsize=18)
-    ax_anim.set_xlabel('Normalized X', fontsize=14)
-    ax_anim.set_ylabel('Normalized Y', fontsize=14)
-    ax_anim.tick_params(axis='both', which='major', labelsize=12)
+    ax_anim.set_title('Single Song UMAP Embedding', fontsize=24)
+    ax_anim.set_xlabel('UMAP 1', fontsize=24)
+    ax_anim.set_ylabel('UMAP 2', fontsize=24)
 
     # Define the animation function
     def animate(frame):
@@ -47,19 +46,18 @@ def create_animated_gif(embedding, ground_truth_labels, ground_truth_colors, hdb
         sizes = np.ones(len(embedding)) * 2
 
         colors[start_idx:end_idx] = [ground_truth_colors[label] for label in ground_truth_labels[start_idx:end_idx]]
-        sizes[start_idx:end_idx] = 10
+        sizes[start_idx:end_idx] = 80
 
         ax_anim.clear()
         for label in unique_labels:
             mask = ground_truth_labels == label
             color = ground_truth_colors[label]
-            ax_anim.scatter(x_norm[mask], y_norm[mask], s=sizes[mask], alpha=0.1, color=color, label=f'Ground Truth Label {label}')
+            ax_anim.scatter(x_norm[mask], y_norm[mask], s=sizes[mask], alpha=0.5, color=color, label=f'Ground Truth Label {label}')
 
         ax_anim.set_aspect('equal')
-        ax_anim.set_title('Animated Dots', fontsize=18)
-        ax_anim.set_xlabel('Normalized X', fontsize=14)
-        ax_anim.set_ylabel('Normalized Y', fontsize=14)
-        ax_anim.tick_params(axis='both', which='major', labelsize=12)
+        ax_anim.set_title('Single Song UMAP Embedding', fontsize=24)
+        ax_anim.set_xlabel('UMAP 1', fontsize=24)
+        ax_anim.set_ylabel('UMAP 2', fontsize=24)
 
     # Set the number of frames for the animation
     num_frames = len(embedding) // points_per_frame + 1
